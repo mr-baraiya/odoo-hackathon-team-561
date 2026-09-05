@@ -1,0 +1,3 @@
+id,name,finish,size,purchase_price,price,category_name,metal_category_name,supplier_contact,supplier_name,HSN CODE,QTY,BOX QTY
+b7be281c-ba93-423c-a5c6-95e780b1f0fc,Gold Ring,Polished,10mm,15000.00,18000.00,Jewelry,Gold,9876543210,ABC Suppliers,HSN001,100,10
+f042e987-c8b5-4872-8f85-e5ba7d16d8bc,Silver Necklace,Matte,16inch,8000.00,10000.00,Jewelry,Silver,9876543211,XYZ Traders,HSN002,50,5
