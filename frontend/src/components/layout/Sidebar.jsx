@@ -100,10 +100,10 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
               key={item.label}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                   isActive
-                    ? 'bg-primary text-white font-semibold shadow-xs'
-                    : 'text-textsub hover:bg-hoverbg hover:text-textmain'
+                    ? 'bg-[#F0F7FA] text-[#2D6B8F] font-semibold border-l-2 border-[#2D6B8F]'
+                    : 'text-[#5A6B7C] hover:bg-[#F7F8FA] hover:text-[#1A1D23]'
                 }`
               }
               title={collapsed ? item.label : undefined}

@@ -11,15 +11,15 @@ const Button = ({
   type = 'button',
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[#2D6B8F]/20 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variants = {
-    primary: 'bg-primary text-white hover:bg-primary-hover focus:ring-primary',
-    secondary: 'bg-secondary text-white hover:bg-secondary-hover focus:ring-secondary',
-    success: 'bg-accent text-white hover:bg-accent-hover focus:ring-accent',
-    danger: 'bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-500',
-    outline: 'border border-bordercolor text-textmain bg-white hover:bg-hoverbg focus:ring-secondary',
-    ghost: 'text-textsub hover:bg-hoverbg hover:text-textmain focus:ring-secondary'
+    primary: 'bg-[#2D6B8F] text-white hover:bg-[#245673]',
+    secondary: 'bg-[#5A6B7C] text-white hover:bg-[#475564]',
+    success: 'bg-[#2E7D5E] text-white hover:bg-[#25664D]',
+    danger: 'bg-[#D32F2F] text-white hover:bg-[#B71C1C]',
+    outline: 'border border-[#E8ECF1] text-[#1A1D23] bg-white hover:bg-[#F7F8FA] hover:border-[#CBD5E1]',
+    ghost: 'text-[#5A6B7C] hover:bg-[#F7F8FA] hover:text-[#1A1D23]'
   };
 
   const sizes = {
@@ -33,7 +33,7 @@ const Button = ({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`${baseStyles} ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`}
       {...props}
     >
       {Icon && <Icon className="w-4 h-4 shrink-0" />}

@@ -8,27 +8,50 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#1a1a2e',
-          hover: '#121223'
+          DEFAULT: '#2D6B8F',
+          hover: '#245673',
+          light: '#F0F7FA',
         },
         secondary: {
-          DEFAULT: '#2d3436',
-          hover: '#212529'
+          DEFAULT: '#5A6B7C',
+          hover: '#475564',
         },
-        bgmain: '#f8f9fa',
-        surface: '#ffffff',
-        textmain: '#1a1a2e',
-        textsub: '#636e72',
+        bgmain: '#F7F8FA',
+        surface: '#FFFFFF',
+        textmain: '#1A1D23',
+        textsub: '#5A6B7C',
+        textmuted: '#94A3B8',
         accent: {
-          DEFAULT: '#00b894',
-          hover: '#00a383',
-          light: '#e6f7f4'
+          DEFAULT: '#2D6B8F',
+          hover: '#245673',
+          light: '#F0F7FA',
         },
-        bordercolor: '#e9ecef',
-        hoverbg: '#f1f3f5'
+        bordercolor: '#E8ECF1',
+        hoverbg: '#F7F8FA',
+        success: {
+          DEFAULT: '#2E7D5E',
+          light: '#F0FDF4',
+        },
+        warning: {
+          DEFAULT: '#B8860B',
+          light: '#FEFCE8',
+        },
+        danger: {
+          DEFAULT: '#D32F2F',
+          light: '#FEF2F2',
+        },
+        info: {
+          DEFAULT: '#0284C7',
+          light: '#F0F9FF',
+        }
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
+      boxShadow: {
+        subtle: '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03)',
+        card: '0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02)',
+        modal: '0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
       }
     },
   },
