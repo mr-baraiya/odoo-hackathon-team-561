@@ -49,12 +49,12 @@ const TopBar = () => {
     <header className="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-bordercolor z-40 px-4 flex items-center justify-between shadow-xs">
       {/* Brand Logo Left */}
       <div className="flex items-center gap-3">
-        <Link to="/" className="flex items-center gap-2 font-bold text-lg text-primary tracking-tight">
-          <div className="w-8 h-8 rounded-lg bg-primary text-accent flex items-center justify-center font-black shadow-sm">
+        <Link to="/" className="flex items-center gap-2 font-bold text-lg tracking-tight">
+          <div className="w-8 h-8 rounded-lg bg-[#2D6B8F] text-white flex items-center justify-center font-black text-xs shadow-xs">
             360
           </div>
-          <span className="text-primary font-bold">DealFlow</span>
-          <span className="text-accent font-black">360</span>
+          <span className="text-[#1A1D23] font-bold">DealFlow</span>
+          <span className="text-[#2D6B8F] font-black">360</span>
         </Link>
       </div>
 

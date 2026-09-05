@@ -1,98 +1,154 @@
-# C-Manager Frontend
+# DealFlow360 - Frontend Application
 
-A modern inventory management system built with React, TypeScript, and Vite.
+DealFlow360 is a modern, end-to-end deal management and quotation automation platform built for high-growth sales, fulfillment, and billing workflows. Developed as part of the Odoo Hackathon (Team 561), this application streamlines quote creation, dynamic multi-tier approval chains, split-warehouse fulfillment, subscription billing, deal health analytics, and client portal interactions.
 
-## Features
+---
 
-- 📦 Inventory Management
-  - Track stock levels
-  - Set minimum and maximum stock thresholds
-  - Manage inventory locations
-  - View inventory transactions
-- 🏢 Multi-company Support
-  - Company-specific inventory settings
-  - Separate inventory tracking per company
-- 🔄 Real-time Updates
-  - Fast refresh with Vite
-  - React Query for efficient data management
-- 🎨 Modern UI
-  - Built with Tailwind CSS
-  - Responsive design
-  - Keyboard shortcuts support
+##  Features
 
-## Tech Stack
+### 1.  Interactive Dashboard
+- High-level sales performance metrics (ARR/MRR, deal volume, pipeline value).
+- Quick alerts for pending approvals, fulfillment bottlenecks, and contract renewals.
+- Interactive charts and deal breakdown cards.
 
-- [React](https://reactjs.org/) - UI Library
-- [TypeScript](https://www.typescriptlang.org/) - Type Safety
-- [Vite](https://vitejs.dev/) - Build Tool
-- [TanStack Query](https://tanstack.com/query) - Data Fetching
-- [React Hook Form](https://react-hook-form.com/) - Form Management
-- [Zod](https://zod.dev/) - Schema Validation
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [Lucide Icons](https://lucide.dev/) - Icon Set
+### 2.  Quotation Builder & Management
+- Dynamic line item configuration (Recurring Subscriptions & One-time Products).
+- Automated discount threshold checks and tax calculations.
+- Multi-warehouse inventory split allocation.
+- Direct link generation for Customer Portal approval.
 
-## Getting Started
+### 3.  Dynamic Approval Chains
+- Automated multi-level approval routing based on discount percentages, deal size, and custom payment terms.
+- Real-time approval history and visual audit trail for compliance.
+
+### 4. 📦 Warehouse & Fulfillment Logistics
+- Multi-location warehouse split handling (e.g., Main Warehouse vs. Regional Hubs).
+- Delivery status tracking (Pending, In Progress, Partially Fulfilled, Shipped).
+- Direct inventory sync and stock level warnings.
+
+### 5. 🔄 Subscriptions & Billing Engine
+- Recurring revenue models (Monthly, Quarterly, Annual billing cycles).
+- Billing schedule tracking, payment milestone breakdowns, and contract auto-renewals.
+- Smart upsell panels and contract add-on recommendations.
+
+### 6. 💳 Invoicing & Payment Tracking
+- Complete invoicing lifecycle (Draft, Sent, Paid, Partial, Overdue).
+- Detailed line-item breakdown with tax summaries.
+
+### 7. 🩺 Deal Health & Blended Risk Scoring
+- AI-driven blended risk score evaluating discount severity, payment term risks, and inventory constraints.
+- Margin health badges and risk mitigation recommendations.
+
+### 8. 📈 Analytics & Reports
+- Advanced reporting for sales conversion rates, approval cycle velocity, margin distributions, and product popularity.
+
+### 9. 🌐 External Customer Portal
+- Seamless client-facing portal (`/portal/:quoteId`) allowing customers to review quotations, inspect line items, sign online, and approve proposals directly.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [React 18](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Routing**: [React Router v6](https://reactrouter.com/)
+- **Styling**: [Tailwind CSS v3](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **HTTP Client**: [Axios](https://axios-http.com/)
+
+---
+
+## 📁 Directory Structure
+
+```text
+frontend/
+├── public/
+├── src/
+│   ├── assets/              # Static assets and media
+│   ├── components/          # Reusable UI components
+│   │   ├── common/          # Atomic components (Button, Input, Card, Table, Badge, Modal, etc.)
+│   │   ├── layout/          # Page layouts, TopBar, Sidebar, CustomerPortalLayout
+│   │   └── special/         # Specialized widgets (ApprovalChain, AuditTrail, BlendedRiskScore, UpsellPanel, WarehouseSplit)
+│   ├── context/             # Global React Contexts (AuthContext, DataContext)
+│   ├── data/                # Mock data fallback (mockData.js)
+│   ├── pages/               # Application view components (Dashboard, Quotations, Approvals, Invoices, etc.)
+│   ├── services/            # API integration modules (api.js, auth.js, quotations.js, etc.)
+│   ├── utils/               # Helper utilities and formatters
+│   ├── App.jsx              # Application routing & layout definition
+│   ├── index.css            # Tailwind CSS imports & global styles
+│   └── main.jsx             # React entry point
+├── package.json
+├── tailwind.config.js
+├── vite.config.js
+└── README.md
+```
+
+---
+
+## ⚙️ Getting Started
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
+Ensure you have **Node.js** (v18 or higher recommended) and **npm** installed on your system.
 
-### Installation
-
-1. Clone the repository:
+### 1. Install Dependencies
 
 ```bash
-git clone [repository-url]
-cd c-manager-front
-```
-
-2. Install dependencies:
-
-```bash
+cd frontend
 npm install
-# or
-yarn install
 ```
 
-3. Start the development server:
+### 2. Configure Backend Endpoint (Optional)
+
+By default, API calls are configured in [`src/services/api.js`](file:///d:/odoo-hackathon-team-561/frontend/src/services/api.js):
+
+```javascript
+baseURL: 'http://192.168.9.168:5000'
+```
+
+If the backend server is unavailable, the application gracefully utilizes mock data stored in `src/data/mockData.js`.
+
+### 3. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
 ```
 
-The application will be available at `http://localhost:5173`
+The application will be available at `http://localhost:5173`.
 
-## Development
+### 4. Build for Production
 
-### Project Structure
-
-```
-src/
-├── components/     # Reusable UI components
-├── pages/         # Page components
-├── services/      # API services
-├── hooks/         # Custom React hooks
-└── utils/         # Utility functions
+```bash
+npm run build
 ```
 
-### Available Scripts
+The compiled assets will be generated in the `dist/` directory.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run lint` - Run ESLint
-- `npm run preview` - Preview production build
+---
 
-## Contributing
+## 🔑 Available Routes
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+| Path | Access Level | Description |
+| :--- | :--- | :--- |
+| `/login` | Public | Authentication / User Login page |
+| `/` | Protected | Executive Dashboard & KPIs |
+| `/quotations` | Protected | List of all quotations |
+| `/quotations/new` | Protected | Quotation Builder (Create quote) |
+| `/quotations/:id` | Protected | Edit / View quotation details |
+| `/approvals` | Protected | Pending deal approvals list |
+| `/approvals/:id` | Protected | Detailed approval decision page |
+| `/fulfillment` | Protected | Orders fulfillment & shipment status |
+| `/fulfillment/:id` | Protected | Warehouse split allocation & delivery details |
+| `/subscriptions` | Protected | Active subscription contracts |
+| `/subscriptions/:id` | Protected | Billing details & schedule |
+| `/invoices` | Protected | Invoices listing |
+| `/invoices/:id` | Protected | Invoice breakdown & payment status |
+| `/deal-health` | Protected | Deal risk score analysis |
+| `/reports` | Protected | Reports & revenue analytics |
+| `/products` | Protected | Product catalog & stock |
+| `/portal/:quoteId` | Public (Token/ID) | External Customer Portal for client approval |
 
-## License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 📜 License
+
+Created for **Odoo Hackathon - Team 561**. All rights reserved.

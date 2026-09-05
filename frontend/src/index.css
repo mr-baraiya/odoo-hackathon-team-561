@@ -4,22 +4,27 @@
 
 @layer base {
   body {
-    @apply bg-bgmain text-textmain antialiased font-sans;
+    @apply bg-bgmain text-textmain antialiased font-sans selection:bg-[#2D6B8F]/10 selection:text-[#2D6B8F];
+  }
+  
+  /* Reset default button outlines for clean focus states */
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    @apply outline-none ring-2 ring-[#2D6B8F]/20 border-[#2D6B8F];
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - subtle light mode styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f8f9fa;
+  background: #F7F8FA;
 }
 ::-webkit-scrollbar-thumb {
-  background: #ced4da;
-  border-radius: 4px;
+  background: #CBD5E1;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #adb5bd;
+  background: #94A3B8;
 }

@@ -194,7 +194,7 @@ const CustomerPortal = () => {
               <HelpCircle className="w-5 h-5 text-primary shrink-0" />
               <div>
                 <p className="text-xs font-bold text-textmain">Need assistance with this quote?</p>
-                <p className="text-[11px] text-textsub">Your assigned account manager is available on WhatsApp & Email.</p>
+                <p className="text-[11px] text-textsub">Your assigned account manager is available via direct Email support.</p>
               </div>
             </div>
             <CustomerContact name="Rahul Sharma (Rep)" phone="+919876543210" email="rep@dealflow.com" showName={false} />

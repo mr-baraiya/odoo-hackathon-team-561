@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Mail, Lock, User, Shield, ArrowRight, CheckCircle2, UserPlus, LogIn, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, Shield, ArrowRight, UserPlus, LogIn, Check, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { SEED_USERS } from '../utils/constants';
 import Button from '../components/common/Button';
@@ -85,6 +85,9 @@ const Login = () => {
 
   const handleSeedClick = async (seedUser) => {
     setError('');
+    setEmail(seedUser.email);
+    setPassword(seedUser.password);
+    setSelectedRole(seedUser.role);
     setLoading(true);
     try {
       await login(seedUser.email, seedUser.password);
@@ -96,232 +99,249 @@ const Login = () => {
     }
   };
 
+  // Helper to prefill form based on role tab
+  const handleRoleSelect = (roleKey) => {
+    setSelectedRole(roleKey);
+    const match = SEED_USERS.find(u => u.role === roleKey);
+    if (match) {
+      setEmail(match.email);
+      setPassword(match.password);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-850 to-primary flex flex-col justify-center items-center p-4 sm:p-6">
-      {/* Container */}
-      <div className="max-w-xl w-full">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-accent text-3xl font-black mb-3 shadow-xl ring-4 ring-accent/20">
+    <div className="min-h-screen bg-[#F7F8FA] flex flex-col justify-between text-[#1A1D23]">
+      {/* Top Header Navigation */}
+      <header className="bg-white border-b border-[#E8ECF1] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#2D6B8F] text-white flex items-center justify-center font-bold text-xs shadow-xs">
             360
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-            DealFlow<span className="text-accent">360</span>
-          </h1>
-          <p className="text-sm text-slate-300 mt-1 font-medium">Enterprise Quote-to-Cash & Workflow Automation</p>
+          <span className="font-bold text-lg text-[#1A1D23]">DealFlow<span className="text-[#2D6B8F]">360</span></span>
         </div>
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => { setMode('signin'); setError(''); }}
+            className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+              mode === 'signin'
+                ? 'bg-[#F0F7FA] text-[#2D6B8F] font-semibold'
+                : 'text-[#5A6B7C] hover:text-[#1A1D23]'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('signup'); setError(''); }}
+            className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+              mode === 'signup'
+                ? 'bg-[#2D6B8F] text-white'
+                : 'border border-[#E8ECF1] text-[#1A1D23] hover:bg-[#F7F8FA]'
+            }`}
+          >
+            Sign Up
+          </button>
+        </div>
+      </header>
 
-        {/* Auth Card */}
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl">
-          {/* Sign In / Sign Up Selector */}
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6">
-            <button
-              type="button"
-              onClick={() => { setMode('signin'); setError(''); }}
-              className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                mode === 'signin'
-                  ? 'bg-primary text-white shadow-md'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <LogIn className="w-4 h-4" /> SIGN IN
-            </button>
-            <button
-              type="button"
-              onClick={() => { setMode('signup'); setError(''); }}
-              className={`flex-1 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${
-                mode === 'signup'
-                  ? 'bg-accent text-slate-900 shadow-md font-black'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <UserPlus className="w-4 h-4" /> SIGN UP
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-semibold flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0"></span>
-              {error}
+      {/* Main Centered Login Section */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 my-6">
+        <div className="max-w-md w-full">
+          {/* Main Card */}
+          <div className="bg-white border border-[#E8ECF1] rounded-xl p-6 sm:p-8 shadow-card">
+            {/* Header Text */}
+            <div className="mb-6 text-center">
+              <h1 className="text-xl font-bold text-[#1A1D23]">
+                {mode === 'signin' ? 'Sign in to DealFlow360' : 'Create an Account'}
+              </h1>
+              <p className="text-xs text-[#5A6B7C] mt-1">
+                {mode === 'signin' 
+                  ? 'Access your enterprise quotes, approvals, and deal pipelines.' 
+                  : 'Select your role and initialize your workspace.'}
+              </p>
             </div>
-          )}
 
-          {/* SIGN IN FORM */}
-          {mode === 'signin' ? (
-            <form onSubmit={handleSignInSubmit} className="space-y-4">
-              <Input
-                label="Email Address"
-                type="email"
-                icon={Mail}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. rep@dealflow.com"
-                required
-              />
-
-              <div>
-                <Input
-                  label="Password"
-                  type="password"
-                  icon={Lock}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-                <div className="flex justify-end mt-1.5">
+            {/* Quick Role Selection Pills */}
+            <div className="mb-5">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#5A6B7C] mb-2">
+                Select Workspace Role
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: 'rep', label: 'Sales Rep' },
+                  { key: 'manager', label: 'Manager' },
+                  { key: 'finance', label: 'Finance' },
+                  { key: 'admin', label: 'Admin' },
+                  { key: 'customer', label: 'Customer' },
+                ].map((r) => (
                   <button
+                    key={r.key}
                     type="button"
-                    onClick={() => alert('For testing, click any of the seed credential accounts below.')}
-                    className="text-xs font-semibold text-accent hover:underline"
+                    onClick={() => handleRoleSelect(r.key)}
+                    className={`px-2.5 py-1 text-xs rounded-md border font-medium transition-colors duration-150 ${
+                      selectedRole === r.key
+                        ? 'bg-[#F0F7FA] border-[#2D6B8F] text-[#2D6B8F] font-semibold'
+                        : 'bg-white border-[#E8ECF1] text-[#5A6B7C] hover:border-[#CBD5E1] hover:text-[#1A1D23]'
+                    }`}
                   >
-                    Forgot Password?
+                    {r.label}
                   </button>
-                </div>
+                ))}
               </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full mt-3 py-3"
-                disabled={loading}
-                icon={ArrowRight}
-              >
-                {loading ? 'Signing in...' : 'Sign In to Workspace'}
-              </Button>
-
-              <div className="text-center pt-2">
-                <span className="text-xs text-slate-500">New to DealFlow360? </span>
-                <button
-                  type="button"
-                  onClick={() => { setMode('signup'); setError(''); }}
-                  className="text-xs font-bold text-primary hover:underline"
-                >
-                  Create an account
-                </button>
-              </div>
-            </form>
-          ) : (
-            /* SIGN UP FORM */
-            <form onSubmit={handleSignUpSubmit} className="space-y-4">
-              <Input
-                label="Full Name"
-                type="text"
-                icon={User}
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Rahul Sharma"
-                required
-              />
-
-              <Input
-                label="Email Address"
-                type="email"
-                icon={Mail}
-                value={signupEmail}
-                onChange={(e) => setSignupEmail(e.target.value)}
-                placeholder="e.g. rahul@company.com"
-                required
-              />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  label="Password"
-                  type="password"
-                  icon={Lock}
-                  value={signupPassword}
-                  onChange={(e) => setSignupPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  icon={Lock}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <Select
-                label="Select Your Organization Role"
-                icon={Shield}
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                options={[
-                  { value: 'rep', label: 'Sales Representative (Rep)' },
-                  { value: 'manager', label: 'Sales Manager' },
-                  { value: 'finance', label: 'Finance Specialist' },
-                  { value: 'admin', label: 'System Administrator' },
-                  { value: 'customer', label: 'Customer / Client Portal' }
-                ]}
-              />
-
-              <Button
-                type="submit"
-                variant="accent"
-                className="w-full mt-3 py-3 font-bold"
-                disabled={loading}
-                icon={UserPlus}
-              >
-                {loading ? 'Creating Account...' : 'Create Account & Sign In'}
-              </Button>
-
-              <div className="text-center pt-2">
-                <span className="text-xs text-slate-500">Already have an account? </span>
-                <button
-                  type="button"
-                  onClick={() => { setMode('signin'); setError(''); }}
-                  className="text-xs font-bold text-primary hover:underline"
-                >
-                  Sign In instead
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Seed User Quick Login Options */}
-          <div className="mt-8 pt-6 border-t border-slate-200">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-accent" /> Quick Seed Test Accounts
-              </span>
-              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold">
-                Instant Login
-              </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {SEED_USERS.map((seed) => (
-                <button
-                  key={seed.role}
-                  type="button"
-                  onClick={() => handleSeedClick(seed)}
-                  className="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 text-left transition-all group"
+
+            {error && (
+              <div className="mb-4 p-3 bg-[#FEF2F2] border border-[#FCA5A5] text-[#D32F2F] text-xs rounded-md font-medium flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D32F2F] shrink-0"></span>
+                {error}
+              </div>
+            )}
+
+            {/* SIGN IN FORM */}
+            {mode === 'signin' ? (
+              <form onSubmit={handleSignInSubmit} className="space-y-4">
+                <Input
+                  label="Email Address"
+                  type="email"
+                  icon={Mail}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. rep@dealflow.com"
+                  required
+                />
+
+                <div>
+                  <Input
+                    label="Password"
+                    type="password"
+                    icon={Lock}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                  <div className="flex justify-end mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => alert('Use seed account shortcuts below to sign in instantly.')}
+                      className="text-xs text-[#2D6B8F] hover:underline font-medium"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full py-2.5 mt-2"
+                  disabled={loading}
+                  icon={ArrowRight}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-primary text-accent text-xs font-black flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    {seed.avatar}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-slate-900 truncate">
-                      {seed.name}
-                    </div>
-                    <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                      Role: {seed.role}
-                    </div>
-                  </div>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </button>
-              ))}
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </Button>
+              </form>
+            ) : (
+              /* SIGN UP FORM */
+              <form onSubmit={handleSignUpSubmit} className="space-y-4">
+                <Input
+                  label="Full Name"
+                  type="text"
+                  icon={User}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. Rahul Sharma"
+                  required
+                />
+
+                <Input
+                  label="Work Email"
+                  type="email"
+                  icon={Mail}
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  placeholder="e.g. rahul@company.com"
+                  required
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Input
+                    label="Password"
+                    type="password"
+                    icon={Lock}
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                  <Input
+                    label="Confirm"
+                    type="password"
+                    icon={Lock}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full py-2.5 mt-2"
+                  disabled={loading}
+                  icon={UserPlus}
+                >
+                  {loading ? 'Creating Account...' : 'Create Account'}
+                </Button>
+              </form>
+            )}
+
+            {/* Seed User Shortcut Section */}
+            <div className="mt-6 pt-5 border-t border-[#E8ECF1]">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-[#5A6B7C]">
+                  Seed Account Shortcuts
+                </span>
+                <span className="text-[10px] text-[#94A3B8]">1-Click Login</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {SEED_USERS.map((seed) => (
+                  <button
+                    key={seed.role}
+                    type="button"
+                    onClick={() => handleSeedClick(seed)}
+                    className="px-3 py-1.5 text-xs bg-white border border-[#E8ECF1] hover:bg-[#F7F8FA] hover:border-[#CBD5E1] rounded-md text-[#1A1D23] font-medium transition-colors duration-150"
+                  >
+                    {seed.name.split(' ')[0]} ({seed.role})
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
-          DealFlow360 Platform • Persistent 24-Hour Secure Session
-        </p>
-      </div>
+          {/* Persistent Session Notice */}
+          <div className="mt-4 p-3 bg-white border border-[#E8ECF1] rounded-lg text-xs text-[#5A6B7C] flex items-center gap-2">
+            <Info className="w-4 h-4 text-[#2D6B8F] shrink-0" />
+            <span><strong>Persistent Session Notice:</strong> Active sessions remain saved across browser refreshes.</span>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-[#E8ECF1] py-4 text-center text-xs text-[#5A6B7C]">
+        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>© 2026 DealFlow360 Enterprise Platform</span>
+          <div className="flex items-center gap-4 text-[#5A6B7C]">
+            <a href="#privacy" onClick={(e) => e.preventDefault()} className="hover:text-[#1A1D23]">Privacy Policy</a>
+            <span>•</span>
+            <a href="#terms" onClick={(e) => e.preventDefault()} className="hover:text-[#1A1D23]">Terms of Service</a>
+            <span>•</span>
+            <a href="#support" onClick={(e) => e.preventDefault()} className="hover:text-[#1A1D23]">Contact Support</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
