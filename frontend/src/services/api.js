@@ -42,6 +42,18 @@ export const customerApi = {
   getOrders: () => api.get("/customer/orders"),
 };
 
+export const approvalApi = {
+  getQueue: () => api.get('/approvals/queue'),
+  getDetails: (id) => api.get(`/approvals/${id}/details`),
+  approve: (id, reason) => api.post(`/approvals/${id}/approve`, { reason }),
+  reject: (id, reason) => api.post(`/approvals/${id}/reject`, { reason }),
+  returnForRevision: (id, reason) => api.post(`/approvals/${id}/return`, { reason }),
+};
+
+export const reportsApi = {
+  getSales: (params) => api.get('/reports/sales', { params }),
+};
+
 // Admin User Management Endpoints
 export const getUsersApi = () => {
   return api.get("/admin/users");

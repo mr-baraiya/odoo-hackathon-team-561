@@ -9,7 +9,10 @@ router.get('/quotations', authenticateJWT, authorizeRoles('admin', 'sales_manage
 });
 
 router.get('/sales', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops'), (req, res) => {
-  res.json({ reportType: 'sales', totalSales: seed.QUOTATIONS.reduce((a, b) => a + b.total_amount, 0), records: seed.QUOTATIONS });
+  const records = req.query.status
+    ? seed.QUOTATIONS.filter((quote) => quote.status === req.query.status)
+    : seed.QUOTATIONS;
+  res.json({ reportType: 'sales', totalSales: records.reduce((total, quote) => total + Number(quote.total_amount || 0), 0), records });
 });
 
 router.get('/revenue', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops'), (req, res) => {

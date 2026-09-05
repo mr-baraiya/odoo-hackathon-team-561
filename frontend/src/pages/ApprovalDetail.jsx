@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, RotateCcw, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { approvalApi } from '../services/api';
+import { toast } from 'react-toastify';
 import Layout from '../components/layout/Layout';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -15,32 +17,66 @@ import BlendedRiskScore from '../components/special/BlendedRiskScore';
 const ApprovalDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { approvals, approveQuotationAction, rejectQuotationAction, returnQuotationAction } = useData();
+  const { approvals } = useData();
+  const fallbackApproval = approvals.find(a => a.id === id || a.quoteId === id) || approvals[0];
+  const [details, setDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const approval = approvals.find(a => a.id === id || a.quoteId === id) || approvals[0];
+  useEffect(() => {
+    approvalApi.getDetails(id)
+      .then(({ data }) => setDetails(data))
+      .catch(() => toast.error('Unable to load approval details'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const approval = details ? {
+    ...fallbackApproval,
+    id,
+    quoteId: details.quote.quote_number || details.quote.id,
+    customer: details.quote.customer_name,
+    customerEmail: details.quote.customer_email,
+    customerPhone: details.quote.customer_phone,
+    approvalSteps: details.approvals,
+    auditTrail: details.auditTrail,
+    status: details.quote.status === 'pending_approval' ? 'pending' : details.quote.status,
+  } : fallbackApproval;
 
   const [modalType, setModalType] = useState(null); // 'return' | 'reject' | null
   const [reasonInput, setReasonInput] = useState('');
 
-  const handleApprove = () => {
-    approveQuotationAction(approval.id);
-    alert(`Quotation ${approval.quoteId} has been Approved!`);
+  const handleApprove = async () => {
+    try {
+      const response = await approvalApi.approve(approval.id, 'Approved from approval workspace');
+      toast.success(response.data.message || 'Approval submitted');
+      navigate('/approvals');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Approval could not be submitted');
+    }
+  };
+
+  const handleConfirmReturn = async () => {
+    try {
+      const response = await approvalApi.returnForRevision(approval.id, reasonInput || 'Needs business justification');
+      toast.success(response.data.message || 'Quotation returned for revision');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Return request could not be submitted');
+    }
+    setModalType(null);
     navigate('/approvals');
   };
 
-  const handleConfirmReturn = () => {
-    returnQuotationAction(approval.id, reasonInput || 'Needs business justification');
+  const handleConfirmReject = async () => {
+    try {
+      const response = await approvalApi.reject(approval.id, reasonInput || 'Policy non-compliant');
+      toast.success(response.data.message || 'Quotation rejected');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Rejection could not be submitted');
+    }
     setModalType(null);
-    alert(`Returned ${approval.quoteId} for revision.`);
     navigate('/approvals');
   };
 
-  const handleConfirmReject = () => {
-    rejectQuotationAction(approval.id, reasonInput || 'Policy non-compliant');
-    setModalType(null);
-    alert(`Rejected ${approval.quoteId}.`);
-    navigate('/approvals');
-  };
+  if (loading) return <Layout><div className="p-6 text-sm text-textsub">Loading approval details...</div></Layout>;
 
   return (
     <Layout>

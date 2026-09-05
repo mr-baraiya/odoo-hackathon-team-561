@@ -21,6 +21,28 @@ router.get('/pending', authenticateJWT, (req, res) => {
   res.json(pendingQuotes);
 });
 
+// GET /api/approvals/queue
+router.get('/queue', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops'), (req, res) => {
+  const queue = seed.QUOTATIONS.flatMap((quote) => (quote.approvals || []).map((step, index) => ({
+    id: step.id,
+    quoteId: quote.quote_number || quote.id,
+    customer: quote.customer_name,
+    customerEmail: quote.customer_email || '',
+    customerPhone: quote.customer_phone || '',
+    blendedRisk: quote.blended_risk_score,
+    stage: step.approval_level,
+    assignedTo: seed.USERS.find((user) => user.role === step.approval_level)?.full_name || step.approval_level,
+    date: quote.created_at,
+    status: step.action === 'approved' ? 'approved' : step.action === 'rejected' ? 'rejected' : step.action === 'returned_for_revision' ? 'returned' : 'pending',
+    approvalSteps: quote.approvals,
+    violations: [],
+    worstLine: 'Review quotation policy compliance',
+    overallPattern: `Quote total: ${quote.total_amount} ${quote.currency_code || 'USD'}`,
+    step: index + 1,
+  })));
+  res.json(queue);
+});
+
 // --- APPROVAL RULES ---
 router.get('/rules', authenticateJWT, (req, res) => {
   res.json(APPROVAL_RULES);
@@ -58,6 +80,31 @@ router.delete('/rules/:id', authenticateJWT, authorizeRoles('admin'), (req, res)
 });
 
 // GET /api/approvals/:id
+router.get('/:id/details', authenticateJWT, (req, res) => {
+  const quote = seed.QUOTATIONS.find((item) =>
+    item.id === req.params.id || item.quote_number === req.params.id || (item.approvals || []).some((step) => step.id === req.params.id)
+  );
+  if (!quote) return res.status(404).json({ message: 'Approval quotation not found' });
+
+  const approvals = (quote.approvals || []).map((step, index) => ({
+    ...step,
+    step: index + 1,
+    role: step.approval_level,
+    status: step.action === 'approved' ? 'approved' : step.action === 'rejected' ? 'rejected' : 'pending',
+    date: step.acted_at || null,
+  }));
+  const auditTrail = seed.AUDIT_LOGS
+    .filter((entry) => entry.entity_type === 'quotation' && entry.entity_id === quote.id)
+    .map((entry) => ({
+      ...entry,
+      user: seed.USERS.find((user) => user.id === entry.performed_by_user_id)?.full_name || 'System',
+      action: entry.reason || entry.action,
+      date: entry.created_at,
+    }));
+
+  return res.json({ quote, approvals, auditTrail });
+});
+
 router.get('/:id', authenticateJWT, (req, res) => {
   const approval = seed.QUOTATIONS.flatMap((q) => q.approvals || []).find((a) => a.id === req.params.id);
   if (!approval) return res.status(404).json({ message: 'Approval step not found' });
@@ -131,6 +178,16 @@ router.post('/:id/return', authenticateJWT, authorizeRoles('sales_manager', 'fin
   appStep.reason = reason || 'Returned for revision';
 
   quote.status = 'draft';
+
+  seed.AUDIT_LOGS.push({
+    id: `audit_${Date.now()}`,
+    entity_type: 'quotation',
+    entity_id: quote.id,
+    action: 'approval_returned_for_revision',
+    performed_by_user_id: req.user.id,
+    reason: reason || 'Returned for revision',
+    created_at: new Date().toISOString(),
+  });
 
   res.json({ message: 'Quotation returned for revision. Status: draft', quote });
 });

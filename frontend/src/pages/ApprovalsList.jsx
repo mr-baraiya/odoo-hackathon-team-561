@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckSquare, ArrowUpRight, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -7,11 +7,23 @@ import Card from '../components/common/Card';
 import Table from '../components/common/Table';
 import Badge from '../components/common/Badge';
 import CustomerContact from '../components/common/CustomerContact';
+import { approvalApi } from '../services/api';
+import { toast } from 'react-toastify';
 
 const ApprovalsList = () => {
-  const { approvals } = useData();
+  const { approvals: fallbackApprovals } = useData();
   const navigate = useNavigate();
+  const [approvals, setApprovals] = useState([]);
   const [activeTab, setActiveTab] = useState('pending');
+
+  useEffect(() => {
+    approvalApi.getQueue()
+      .then(({ data }) => setApprovals(data))
+      .catch(() => {
+        setApprovals(fallbackApprovals);
+        toast.error('Unable to load live approval queue');
+      });
+  }, [fallbackApprovals]);
 
   const filteredApprovals = approvals.filter((app) => {
     if (activeTab === 'all') return true;
