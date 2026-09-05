@@ -1,2 +1,36 @@
-node_modules
+# Node Modules & Dependencies
+node_modules/
+**/node_modules/
+
+# Environment Configuration Files
 .env
+.env.*
+!.env.example
+!**/env.example
+
+# Logs and Runtime Artifacts
+logs/
+**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Application Storage & Temporary Cache
+/tmp
+**/tmp/
+/files
+**/files/
+/whatsapp_cache
+**/.wwebjs_cache/
+meta.json
+
+# Build & Coverage Outputs
+dist/
+build/
+coverage/
+
+# Editor & System Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
