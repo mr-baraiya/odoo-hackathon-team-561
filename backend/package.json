@@ -1,15 +1,59 @@
 {
-  "name": "backend",
+  "name": "dealflow360-backend",
   "version": "1.0.0",
-  "description": "Backend for Odoo Hackathon Team 561",
-  "main": "src/server.js",
+  "description": "DealFlow360 - Self Governing Sales Operations Platform Backend API",
+  "main": "./src/index.js",
   "scripts": {
-    "start": "node src/server.js"
+    "test": "node ../scripts/verify_dealflow.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "dbmate": "dbmate --migrations-dir ./db/migrations up",
+    "db:up": "dbmate --migrations-dir ./db/migrations up",
+    "db:down": "dbmate --migrations-dir ./db/migrations down",
+    "db:status": "dbmate --migrations-dir ./db/migrations status"
   },
-  "keywords": [],
+  "keywords": [
+    "dealflow360",
+    "sales-ops",
+    "quotations",
+    "discount-governance",
+    "warehouse-splitting",
+    "hybrid-billing"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2"
+    "axios": "^1.9.0",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "express-validation": "^4.1.1",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
+    "moment-timezone": "^0.6.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^7.0.10",
+    "pdfkit": "^0.17.2",
+    "pg": "^8.13.3",
+    "qs": "^6.14.0",
+    "razorpay": "^2.9.8",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "dbmate": "^2.27.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "nodemon": "^3.1.9"
+  },
+  "_moduleAliases": {
+    "@": "./src"
   }
 }

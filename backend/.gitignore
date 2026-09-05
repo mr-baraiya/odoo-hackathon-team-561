@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Environment variable files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs and Runtime Data
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Directory and Temporary Storage
+/tmp
+/files
+/out
+/whatsapp_cache
+/.wwebjs_cache
+meta.json
+test.js
+
+# Editor & OS files
+.DS_Store
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Testing & Coverage
+coverage/
+.nyc_output/
