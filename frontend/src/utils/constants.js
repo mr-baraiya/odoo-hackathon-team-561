@@ -7,11 +7,51 @@ export const ROLES = {
 };
 
 export const SEED_USERS = [
-  { email: 'admin@dealflow.com', password: 'admin123', role: 'admin', name: 'Admin User', avatar: 'AU' },
-  { email: 'rep@dealflow.com', password: 'rep123', role: 'rep', name: 'Rahul Sharma', avatar: 'RS' },
-  { email: 'manager@dealflow.com', password: 'manager123', role: 'manager', name: 'Priya Patel', avatar: 'PP' },
-  { email: 'finance@dealflow.com', password: 'finance123', role: 'finance', name: 'Amit Kumar', avatar: 'AK' },
-  { email: 'customer@dealflow.com', password: 'customer123', role: 'customer', name: 'ABC Company', avatar: 'ABC' }
+  { 
+    id: '1', 
+    name: 'Admin User', 
+    email: 'admin@dealflow.com', 
+    password: 'admin123', 
+    role: 'admin',
+    avatar: 'AU',
+    dashboard: '/admin/dashboard'
+  },
+  { 
+    id: '2', 
+    name: 'Rahul Sharma', 
+    email: 'rep@dealflow.com', 
+    password: 'rep123', 
+    role: 'rep',
+    avatar: 'RS',
+    dashboard: '/rep/dashboard'
+  },
+  { 
+    id: '3', 
+    name: 'Priya Patel', 
+    email: 'manager@dealflow.com', 
+    password: 'manager123', 
+    role: 'manager',
+    avatar: 'PP',
+    dashboard: '/manager/dashboard'
+  },
+  { 
+    id: '4', 
+    name: 'Amit Kumar', 
+    email: 'finance@dealflow.com', 
+    password: 'finance123', 
+    role: 'finance',
+    avatar: 'AK',
+    dashboard: '/finance/dashboard'
+  },
+  { 
+    id: '5', 
+    name: 'ABC Company', 
+    email: 'customer@dealflow.com', 
+    password: 'customer123', 
+    role: 'customer',
+    avatar: 'ABC',
+    dashboard: '/customer/portal'
+  }
 ];
 
 export const STATUS_COLORS = {

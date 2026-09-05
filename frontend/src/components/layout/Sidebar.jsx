@@ -10,6 +10,8 @@ import {
   Activity, 
   BarChart3, 
   Package, 
+  Settings,
+  Mail,
   ChevronLeft, 
   ChevronRight 
 } from 'lucide-react';
@@ -21,22 +23,68 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
   const { approvals } = useData();
 
   const pendingApprovalsCount = approvals.filter(a => a.status === 'pending').length;
+  const role = user?.role || 'rep';
 
-  const navItems = [
-    { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Quotations', path: '/quotations', icon: FileText },
-    { label: 'Approvals', path: '/approvals', icon: CheckSquare, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null },
-    { label: 'Fulfillment', path: '/fulfillment', icon: Truck },
-    { label: 'Subscription', path: '/subscriptions', icon: Repeat },
-    { label: 'Invoices', path: '/invoices', icon: Receipt },
-    { label: 'Deal Health', path: '/deal-health', icon: Activity },
-    { label: 'Reports', path: '/reports', icon: BarChart3 },
-  ];
+  // Role-specific navigation items definition
+  const getNavItemsForRole = () => {
+    switch (role) {
+      case 'admin':
+        return [
+          { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Quotations (All)', path: '/quotations', icon: FileText },
+          { label: 'Approvals (All)', path: '/approvals', icon: CheckSquare, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null },
+          { label: 'Fulfillment (All)', path: '/fulfillment', icon: Truck },
+          { label: 'Subscription (All)', path: '/subscriptions', icon: Repeat },
+          { label: 'Invoices (All)', path: '/invoices', icon: Receipt },
+          { label: 'Deal Health (All)', path: '/deal-health', icon: Activity },
+          { label: 'Reports (All)', path: '/reports', icon: BarChart3 },
+          { label: 'Products', path: '/products', icon: Package },
+          { label: 'Admin Settings', path: '/admin/settings', icon: Settings },
+        ];
+      case 'manager':
+        return [
+          { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'Team Quotations', path: '/quotations', icon: FileText },
+          { label: 'Approvals (Team)', path: '/approvals', icon: CheckSquare, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null },
+          { label: 'Fulfillment', path: '/fulfillment', icon: Truck },
+          { label: 'Subscription', path: '/subscriptions', icon: Repeat },
+          { label: 'Invoices', path: '/invoices', icon: Receipt },
+          { label: 'Deal Health', path: '/deal-health', icon: Activity },
+          { label: 'Team Reports', path: '/reports', icon: BarChart3 },
+        ];
+      case 'finance':
+        return [
+          { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'High-Risk Quotes', path: '/quotations', icon: FileText },
+          { label: 'Financial Approvals', path: '/approvals', icon: CheckSquare, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null },
+          { label: 'Subscription (Billing)', path: '/subscriptions', icon: Repeat },
+          { label: 'Invoices (All)', path: '/invoices', icon: Receipt },
+          { label: 'Deal Health (Financial)', path: '/deal-health', icon: Activity },
+          { label: 'Financial Reports', path: '/reports', icon: BarChart3 },
+        ];
+      case 'customer':
+        return [
+          { label: 'My Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'My Quotes', path: '/quotations', icon: FileText },
+          { label: 'Browse Products', path: '/products', icon: Package },
+          { label: 'My Orders', path: '/fulfillment', icon: Truck },
+          { label: 'Contact Us', path: '/portal/Q-1042', icon: Mail },
+        ];
+      case 'rep':
+      default:
+        return [
+          { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { label: 'My Quotations', path: '/quotations', icon: FileText },
+          { label: 'My Approvals', path: '/approvals', icon: CheckSquare, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null },
+          { label: 'Fulfillment', path: '/fulfillment', icon: Truck },
+          { label: 'Subscription', path: '/subscriptions', icon: Repeat },
+          { label: 'Invoices', path: '/invoices', icon: Receipt },
+          { label: 'Reports', path: '/reports', icon: BarChart3 },
+        ];
+    }
+  };
 
-  // Admin-only product catalog link
-  if (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'rep') {
-    navItems.push({ label: 'Products', path: '/products', icon: Package });
-  }
+  const navItems = getNavItemsForRole();
 
   return (
     <aside
@@ -49,12 +97,12 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
           const Icon = item.icon;
           return (
             <NavLink
-              key={item.path}
+              key={item.label}
               to={item.path}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-primary text-white font-semibold'
+                    ? 'bg-primary text-white font-semibold shadow-xs'
                     : 'text-textsub hover:bg-hoverbg hover:text-textmain'
                 }`
               }

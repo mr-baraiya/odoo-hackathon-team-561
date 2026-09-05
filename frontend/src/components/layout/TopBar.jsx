@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, Bell, User, LogOut, Shield, ChevronDown, Check, Layers } from 'lucide-react';
+import { Search, Bell, LogOut, ChevronDown, Layers } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { SEED_USERS } from '../../utils/constants';
 
 const TopBar = () => {
-  const { user, logout, loginAsSeedUser } = useAuth();
+  const { user, logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
-  const handleRoleSwitch = (role) => {
-    loginAsSeedUser(role);
-    setShowProfileMenu(false);
-    navigate('/');
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   const handleSearchSubmit = (e) => {
@@ -24,12 +22,35 @@ const TopBar = () => {
     }
   };
 
+  // Role display label
+  const getRoleLabel = (role) => {
+    switch (role) {
+      case 'admin': return 'Administrator';
+      case 'manager': return 'Sales Manager';
+      case 'finance': return 'Finance';
+      case 'customer': return 'Customer';
+      case 'rep':
+      default: return 'Sales Rep';
+    }
+  };
+
+  const getRoleBadgeStyle = (role) => {
+    switch (role) {
+      case 'admin': return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+      case 'manager': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+      case 'finance': return 'bg-teal-500/10 text-teal-600 border-teal-500/20';
+      case 'customer': return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+      case 'rep':
+      default: return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+    }
+  };
+
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-bordercolor z-40 px-4 flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-surface border-b border-bordercolor z-40 px-4 flex items-center justify-between shadow-xs">
       {/* Brand Logo Left */}
       <div className="flex items-center gap-3">
         <Link to="/" className="flex items-center gap-2 font-bold text-lg text-primary tracking-tight">
-          <div className="w-8 h-8 rounded-lg bg-primary text-accent flex items-center justify-center font-black">
+          <div className="w-8 h-8 rounded-lg bg-primary text-accent flex items-center justify-center font-black shadow-sm">
             360
           </div>
           <span className="text-primary font-bold">DealFlow</span>
@@ -53,14 +74,16 @@ const TopBar = () => {
 
       {/* Right Icons & User Profile */}
       <div className="flex items-center gap-4">
-        {/* Customer Portal Link */}
-        <Link 
-          to="/portal/Q-1042" 
-          target="_blank" 
-          className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:bg-accent-light px-2.5 py-1.5 rounded-lg border border-accent/20 transition-colors"
-        >
-          <Layers className="w-3.5 h-3.5" /> Customer Portal Demo
-        </Link>
+        {/* Customer Portal Link if not customer */}
+        {user?.role !== 'customer' && (
+          <Link 
+            to="/portal/Q-1042" 
+            target="_blank" 
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:bg-accent-light px-2.5 py-1.5 rounded-lg border border-accent/20 transition-colors"
+          >
+            <Layers className="w-3.5 h-3.5" /> Customer Portal Demo
+          </Link>
+        )}
 
         {/* Notifications */}
         <div className="relative">
@@ -100,59 +123,42 @@ const TopBar = () => {
           )}
         </div>
 
-        {/* User Profile Badge */}
+        {/* User Profile Menu */}
         <div className="relative">
           <button
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-2.5 p-1.5 hover:bg-hoverbg rounded-lg transition-colors border border-transparent hover:border-bordercolor"
           >
-            <div className="w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-xs">
               {user?.avatar || 'US'}
             </div>
             <div className="hidden md:block text-left">
               <div className="text-xs font-semibold text-textmain flex items-center gap-1">
-                {user?.name || 'John Doe'}
+                {user?.name || 'User'}
                 <ChevronDown className="w-3 h-3 text-textsub" />
               </div>
-              <div className="text-[10px] uppercase font-bold text-accent tracking-wider">
-                {user?.role || 'Rep'}
+              <div className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded border inline-block mt-0.5 ${getRoleBadgeStyle(user?.role)}`}>
+                {getRoleLabel(user?.role)}
               </div>
             </div>
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-64 bg-surface border border-bordercolor rounded-xl shadow-xl py-2 z-50 animate-fadeIn">
+            <div className="absolute right-0 mt-2 w-56 bg-surface border border-bordercolor rounded-xl shadow-xl py-2 z-50 animate-fadeIn">
               <div className="px-4 py-2 border-b border-bordercolor">
                 <p className="text-xs font-bold text-textmain">{user?.name}</p>
-                <p className="text-xs text-textsub">{user?.email}</p>
+                <p className="text-xs text-textsub truncate">{user?.email}</p>
+                <div className="mt-1">
+                  <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${getRoleBadgeStyle(user?.role)}`}>
+                    {getRoleLabel(user?.role)}
+                  </span>
+                </div>
               </div>
 
-              {/* Seed Role Quick Switcher */}
-              <div className="py-2 px-2">
-                <span className="text-[10px] uppercase font-bold text-textsub px-2 block mb-1">
-                  Switch Active Role (Demo)
-                </span>
-                {SEED_USERS.map((seed) => (
-                  <button
-                    key={seed.role}
-                    onClick={() => handleRoleSwitch(seed.role)}
-                    className={`w-full flex items-center justify-between text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                      user?.role === seed.role ? 'bg-primary/10 text-primary font-semibold' : 'text-textsub hover:bg-hoverbg hover:text-textmain'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5 text-secondary" />
-                      {seed.name} ({seed.role})
-                    </span>
-                    {user?.role === seed.role && <Check className="w-3.5 h-3.5 text-primary" />}
-                  </button>
-                ))}
-              </div>
-
-              <div className="border-t border-bordercolor pt-1 mt-1">
+              <div className="pt-1">
                 <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" /> Sign Out
                 </button>

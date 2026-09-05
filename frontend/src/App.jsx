@@ -20,11 +20,18 @@ import Reports from './pages/Reports';
 import Products from './pages/Products';
 import CustomerPortal from './pages/CustomerPortal';
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const { isAuthenticated, user } = useAuth();
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+    // If not authorized for this specific role route, send to home dashboard
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
@@ -34,8 +41,21 @@ const App = () => {
       <AuthProvider>
         <DataProvider>
           <Routes>
+            {/* Public Auth Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Login />} />
+            
+            {/* Main Role-Based Dashboard */}
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+
+            {/* Direct Role Dashboard Aliases */}
+            <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/rep/dashboard" element={<ProtectedRoute allowedRoles={['rep']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/manager/dashboard" element={<ProtectedRoute allowedRoles={['manager']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/finance/dashboard" element={<ProtectedRoute allowedRoles={['finance']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/customer/portal" element={<ProtectedRoute allowedRoles={['customer']}><Dashboard /></ProtectedRoute>} />
+            
+            {/* Feature Routes */}
             <Route path="/quotations" element={<ProtectedRoute><QuotationsList /></ProtectedRoute>} />
             <Route path="/quotations/new" element={<ProtectedRoute><QuotationBuilder /></ProtectedRoute>} />
             <Route path="/quotations/:id" element={<ProtectedRoute><QuotationBuilder /></ProtectedRoute>} />
@@ -50,7 +70,13 @@ const App = () => {
             <Route path="/deal-health" element={<ProtectedRoute><DealHealth /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
+            
+            {/* Customer Public Interactive Portal View */}
+            <Route path="/portal/:quoteId font" element={<CustomerPortal />} />
             <Route path="/portal/:quoteId" element={<CustomerPortal />} />
+            
+            {/* Catch All Redirect */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </DataProvider>
