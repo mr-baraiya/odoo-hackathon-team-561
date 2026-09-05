@@ -30,6 +30,11 @@ export const userService = {
   async deleteUser(id) {
     return await apiClient.delete(`/users/${id}`);
   },
+
+  // Reset user password
+  async resetPassword(id, new_password) {
+    return await apiClient.post(`/users/${id}/reset-password`, { new_password });
+  },
 };
 
 export default userService;
