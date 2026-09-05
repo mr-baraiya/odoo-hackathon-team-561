@@ -31,15 +31,15 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       case 'admin':
         return [
           { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-          { label: 'Quotations (All)', path: '/quotations', icon: FileText },
-          { label: 'Approvals (All)', path: '/approvals', icon: CheckSquare, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null },
-          { label: 'Fulfillment (All)', path: '/fulfillment', icon: Truck },
-          { label: 'Subscription (All)', path: '/subscriptions', icon: Repeat },
-          { label: 'Invoices (All)', path: '/invoices', icon: Receipt },
-          { label: 'Deal Health (All)', path: '/deal-health', icon: Activity },
-          { label: 'Reports (All)', path: '/reports', icon: BarChart3 },
+          { label: 'Quotations', path: '/quotations', icon: FileText },
+          { label: 'Approvals', path: '/approvals', icon: CheckSquare, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null },
+          { label: 'Fulfillment', path: '/fulfillment', icon: Truck },
+          { label: 'Subscription', path: '/subscriptions', icon: Repeat },
+          { label: 'Invoices', path: '/invoices', icon: Receipt },
+          { label: 'Deal Health', path: '/deal-health', icon: Activity },
+          { label: 'Reports', path: '/reports', icon: BarChart3 },
+          { label: 'Users', path: '/admin/users', icon: Users },
           { label: 'Products', path: '/products', icon: Package },
-          { label: 'User Management', path: '/admin/users', icon: Settings },
           { label: 'Admin Settings', path: '/admin/settings', icon: Settings },
         ];
       case 'manager':

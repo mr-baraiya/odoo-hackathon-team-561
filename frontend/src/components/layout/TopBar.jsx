@@ -23,25 +23,25 @@ const TopBar = () => {
   };
 
   // Role display label
-  const getRoleLabel = (role) => {
+  const getRoleTag = (role) => {
     switch (role) {
-      case 'admin': return 'Administrator';
-      case 'manager': return 'Sales Manager';
-      case 'finance': return 'Finance';
-      case 'customer': return 'Customer';
+      case 'admin': return 'ADMIN';
+      case 'manager': return 'MANAGER';
+      case 'finance': return 'FINANCE';
+      case 'customer': return 'CUSTOMER';
       case 'rep':
-      default: return 'Sales Rep';
+      default: return 'SALES';
     }
   };
 
   const getRoleBadgeStyle = (role) => {
     switch (role) {
-      case 'admin': return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
-      case 'manager': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
-      case 'finance': return 'bg-teal-500/10 text-teal-600 border-teal-500/20';
-      case 'customer': return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+      case 'admin': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'manager': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'finance': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'customer': return 'bg-orange-50 text-orange-700 border-orange-200';
       case 'rep':
-      default: return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+      default: return 'bg-[#F0F7FA] text-[#2D6B8F] border-[#2D6B8F]/20';
     }
   };
 
@@ -74,17 +74,6 @@ const TopBar = () => {
 
       {/* Right Icons & User Profile */}
       <div className="flex items-center gap-4">
-        {/* Customer Portal Link if not customer */}
-        {user?.role !== 'customer' && (
-          <Link 
-            to="/portal/Q-1042" 
-            target="_blank" 
-            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:bg-accent-light px-2.5 py-1.5 rounded-lg border border-accent/20 transition-colors"
-          >
-            <Layers className="w-3.5 h-3.5" /> Customer Portal Demo
-          </Link>
-        )}
-
         {/* Notifications */}
         <div className="relative">
           <button
@@ -129,16 +118,13 @@ const TopBar = () => {
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-2.5 p-1.5 hover:bg-hoverbg rounded-lg transition-colors border border-transparent hover:border-bordercolor"
           >
-            <div className="w-8 h-8 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-full bg-[#2D6B8F] text-white text-xs font-bold flex items-center justify-center shadow-xs">
               {user?.avatar || 'US'}
             </div>
             <div className="hidden md:block text-left">
               <div className="text-xs font-semibold text-textmain flex items-center gap-1">
-                {user?.name || 'User'}
-                <ChevronDown className="w-3 h-3 text-textsub" />
-              </div>
-              <div className={`text-[10px] uppercase font-bold px-1.5 py-0.2 rounded border inline-block mt-0.5 ${getRoleBadgeStyle(user?.role)}`}>
-                {getRoleLabel(user?.role)}
+                {user?.name || 'User'} <span className="text-textsub font-normal">•</span> <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${getRoleBadgeStyle(user?.role)}`}>{getRoleTag(user?.role)}</span>
+                <ChevronDown className="w-3 h-3 text-textsub ml-0.5" />
               </div>
             </div>
           </button>
