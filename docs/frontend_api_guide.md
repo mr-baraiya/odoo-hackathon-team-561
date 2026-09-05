@@ -1,45 +1,45 @@
-# DealFlow360 Frontend Developer API Integration Guide
+# DealFlow360 Frontend Developer API Integration Guide & Comprehensive Reference
 
-This guide provides frontend developers with detailed technical specifications for integrating with the DealFlow360 REST APIs.
+This document serves as the complete, authoritative technical specification for all REST API endpoints provided by the **DealFlow360 B2B Sales Operations Platform**.
 
 ---
 
 ## 1. Core Integration Setup
 
-### Base URL
-- **Development**: `http://localhost:5000/api` or `http://localhost:3023/api`
-- **Production**: `https://your-domain.com/api`
+### Base URLs
+- **Local Development**: `http://localhost:5000/api`
+- **Alternative Local Port**: `http://localhost:3023/api`
+- **Production Server**: `https://your-domain.com/api`
 
-### Mandatory Request Headers
-All protected API requests must include the JWT authentication token in one of the following formats:
+### Request Headers
+All protected endpoints require a valid JSON Web Token (JWT) provided via the standard HTTP Authorization header:
 
 ```http
 Authorization: Bearer <JWT_TOKEN>
 Content-Type: application/json
 ```
 
-Alternatively, `x-access-token: <JWT_TOKEN>` header or HTTP-only cookie named `token` is supported.
+*Alternative header support*: `x-access-token: <JWT_TOKEN>` or HTTP-only `token` cookie.
+
+### Strict CORS Policy
+Cross-Origin Resource Sharing (CORS) is strictly restricted to the URL defined in the `FRONTEND_URL` environment variable (default: `http://localhost:5173`). Requests originating from unauthorized browser origins will be rejected with an HTTP CORS policy violation error.
 
 ---
 
-## 2. Standardized Response & Error Formats
+## 2. Standardized Response & Error Schema
 
-### Successful Response Format
-All successful data payloads return JSON with HTTP status code `200` (OK) or `201` (Created):
-
+### Success Response Format (HTTP 200 OK / 201 Created)
 ```json
 {
   "id": "1101",
   "quote_number": "QT-2026-001",
   "status": "pending_approval",
-  "total_amount": 6390.0,
+  "total_amount": 6390.00,
   "created_at": "2026-09-05T12:00:00.000Z"
 }
 ```
 
-### Standard Error Response Format
-When an API call fails (HTTP `400`, `401`, `403`, `404`, `500`), the response body follows this schema:
-
+### Standardized Error Schema (HTTP 400, 401, 403, 404, 500)
 ```json
 {
   "code": "permission_denied",
@@ -48,20 +48,9 @@ When an API call fails (HTTP `400`, `401`, `403`, `404`, `500`), the response bo
 }
 ```
 
-### Common HTTP Status Codes
-- `200 OK`: Request succeeded.
-- `201 Created`: Resource successfully created.
-- `400 Bad Request`: Validation failure or invalid parameters.
-- `401 Unauthorized`: Token missing, expired, or invalid.
-- `403 Forbidden`: Authenticated user lacks required role permissions.
-- `404 Not Found`: Requested resource or endpoint does not exist.
-- `500 Internal Server Error`: Server exception.
-
 ---
 
-## 3. Frontend Utility Helper Code Example
-
-Below is a reusable JavaScript/TypeScript `fetch` wrapper module for frontend applications:
+## 3. Reusable Frontend Fetch Helper
 
 ```javascript
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -100,11 +89,36 @@ export default apiRequest;
 
 ---
 
-## 4. Complete API Endpoint Reference
+## 4. Complete Detailed API Endpoints Reference
 
-### 4.1 Authentication Module
+### 4.0 System Health & Connectivity
 
-#### POST /auth/login
+#### GET /health or GET /api/health
+- **Access**: Public / Unauthenticated
+- **Description**: Returns server status, uptime in seconds, database connection health, and node memory heap statistics.
+- **Response (200 OK)**:
+```json
+{
+  "status": "healthy",
+  "service": "dealflow360",
+  "environment": "dev",
+  "uptime_seconds": 245,
+  "timestamp": "2026-09-05T13:45:00.000Z",
+  "database": { "status": "connected", "engine": "postgresql" },
+  "memory": { "heapUsed": "18.42 MB", "heapTotal": "34.12 MB", "rss": "72.10 MB" }
+}
+```
+
+#### GET /ping
+- **Access**: Public
+- **Description**: Simple ping-pong endpoint for quick network validation.
+- **Response (200 OK)**: `pong (DealFlow360)`
+
+---
+
+### 4.1 Authentication & Session Management
+
+#### POST /api/auth/login
 - **Access**: Public
 - **Request Body**:
 ```json
@@ -113,10 +127,10 @@ export default apiRequest;
   "password": "password123"
 }
 ```
-- **Response Payload (200 OK)**:
+- **Response (200 OK)**:
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": "101",
     "full_name": "Sales Representative",
@@ -126,61 +140,70 @@ export default apiRequest;
 }
 ```
 
-#### GET /auth/me
-- **Access**: All Authenticated Roles
-- **Response Payload (200 OK)**: Returns profile of current logged-in user.
+#### GET /api/auth/me
+- **Access**: All Authenticated Roles (`admin`, `sales_manager`, `finance_ops`, `sales_rep`, `customer`)
+- **Response (200 OK)**: Returns full profile of current authenticated user.
 
-#### POST /auth/logout
+#### POST /api/auth/logout
 - **Access**: All Authenticated Roles
-- **Response Payload (200 OK)**: `{ "message": "Logged out successfully" }`
+- **Response (200 OK)**: `{ "message": "Successfully logged out." }`
 
-#### POST /auth/forgot-password
+#### POST /api/auth/forgot-password
+- **Access**: Public
 - **Request Body**: `{ "email": "user@example.com" }`
-- **Response Payload (200 OK)**: `{ "message": "Reset link sent to email" }`
+- **Response (200 OK)**: `{ "message": "Password reset token generated and sent to email." }`
 
-#### POST /auth/reset-password
-- **Request Body**: `{ "token": "reset_token_xxx", "newPassword": "new_password_123" }`
+#### POST /api/auth/reset-password
+- **Access**: Public
+- **Request Body**: `{ "token": "reset_1772870400000_abc123", "newPassword": "newPassword123" }`
+- **Response (200 OK)**: `{ "message": "Password updated successfully." }`
+
+#### POST /api/auth/magic-link
+- **Access**: Public
+- **Request Body**: `{ "email": "customer@company.com" }`
+- **Response (200 OK)**: `{ "message": "Magic link token generated", "token": "magic_token_xxx" }`
 
 ---
 
 ### 4.2 Users Management Module
 
-#### GET /users
+#### GET /api/users
 - **Access**: `admin`, `sales_manager`, `finance_ops`
-- **Query Params**: `page` (optional), `limit` (optional), `role` (optional)
-- **Response Payload (200 OK)**: Array of user objects.
+- **Response (200 OK)**: Array of user records with assigned RBAC roles.
 
-#### POST /users
+#### POST /api/users
 - **Access**: `admin`
 - **Request Body**:
 ```json
 {
-  "full_name": "Jane Doe",
-  "email": "jane@example.com",
+  "full_name": "John Doe",
+  "email": "john@example.com",
   "role": "sales_rep",
-  "password": "secure_password"
+  "password": "password123"
 }
 ```
+- **Response (201 Created)**: Created user object.
 
-#### GET /users/:id
+#### GET /api/users/:id
 - **Access**: `admin`, `sales_manager`, `finance_ops`
 
-#### PUT /users/:id
+#### PUT /api/users/:id
 - **Access**: `admin`
 
-#### DELETE /users/:id
+#### DELETE /api/users/:id
 - **Access**: `admin`
+- **Response (200 OK)**: `{ "message": "User deleted successfully", "id": "104" }`
 
 ---
 
-### 4.3 Customers & Tiers Module
+### 4.3 Customers Directory & Relations
 
-#### GET /customers
+#### GET /api/customers
 - **Access**: `admin`, `sales_manager`, `finance_ops`, `sales_rep`
-- **Response Payload (200 OK)**: List of customer profiles.
+- **Response (200 OK)**: List of customer profiles with tier assignments and sales rep IDs.
 
-#### POST /customers
-- **Access**: `admin`, `sales_manager`, `finance_ops`, `sales_rep`
+#### POST /api/customers
+- **Access**: `admin`, `sales_manager`, `sales_rep`
 - **Request Body**:
 ```json
 {
@@ -192,9 +215,31 @@ export default apiRequest;
 }
 ```
 
-#### GET /customer-tiers
+#### GET /api/customers/:id
+- **Access**: `admin`, `sales_manager`, `finance_ops`, `sales_rep`
+
+#### PUT /api/customers/:id
+- **Access**: `admin`, `sales_manager`, `sales_rep`
+
+#### DELETE /api/customers/:id
+- **Access**: `admin`
+
+#### GET /api/customers/:id/quotations
+- **Access**: `admin`, `sales_manager`, `finance_ops`, `sales_rep`, `customer`
+
+#### GET /api/customers/:id/orders
+- **Access**: `admin`, `sales_manager`, `finance_ops`, `sales_rep`, `customer`
+
+#### GET /api/customers/:id/invoices
+- **Access**: `admin`, `sales_manager`, `finance_ops`, `sales_rep`, `customer`
+
+---
+
+### 4.4 Customer Tiers & Governance
+
+#### GET /api/customer-tiers
 - **Access**: All Authenticated Roles
-- **Response Payload (200 OK)**:
+- **Response (200 OK)**:
 ```json
 [
   { "id": "201", "tier_code": "bronze", "name": "Bronze Tier", "discount_ceiling_pct": 5.0 },
@@ -204,41 +249,114 @@ export default apiRequest;
 ]
 ```
 
+#### POST /api/customer-tiers
+- **Access**: `admin`
+
 ---
 
-### 4.4 Catalog & Discount Governance Module
+### 4.5 Product Catalog & Variants
 
-#### GET /categories
+#### GET /api/categories
 - **Access**: All Authenticated Roles
 
-#### GET /products
+#### GET /api/categories/:id
 - **Access**: All Authenticated Roles
 
-#### GET /price-lists
+#### POST /api/categories
+- **Access**: `admin`
+- **Request Body**: `{ "name": "Software SaaS", "category_type": "subscription", "discount_ceiling_pct": 20.0 }`
+
+#### PUT /api/categories/:id
+- **Access**: `admin`
+
+#### DELETE /api/categories/:id
+- **Access**: `admin`
+
+#### GET /api/products
 - **Access**: All Authenticated Roles
 
-#### GET /discount/rules
+#### GET /api/products/:id
 - **Access**: All Authenticated Roles
 
-#### POST /discount/rules
+#### POST /api/products
+- **Access**: `admin`
+- **Request Body**:
+```json
+{
+  "sku": "HW-SRV-02",
+  "name": "Rack Server Pro",
+  "category_id": "401",
+  "base_price": 2500.0,
+  "cost_price": 1800.0,
+  "tax_rate_pct": 18.0
+}
+```
+
+#### PUT /api/products/:id
+- **Access**: `admin`
+
+#### DELETE /api/products/:id
+- **Access**: `admin`
+
+#### PATCH /api/products/:id/status
+- **Access**: `admin`
+
+#### PATCH /api/products/:id/promotion
+- **Access**: `admin`, `sales_manager`
+
+#### GET /api/products/:id/variants
+- **Access**: All Authenticated Roles
+
+#### POST /api/products/:id/variants
+- **Access**: `admin`
+
+#### PUT /api/products/:id/variants/:variantId
+- **Access**: `admin`
+
+#### DELETE /api/products/:id/variants/:variantId
+- **Access**: `admin`
+
+---
+
+### 4.6 Price Lists & Custom Discount Rules
+
+#### GET /api/price-lists
+- **Access**: All Authenticated Roles
+
+#### POST /api/price-lists
+- **Access**: `admin`, `finance_ops`
+
+#### GET /api/price-lists/:id
+- **Access**: All Authenticated Roles
+
+#### GET /api/discount/rules (or /api/discount-rules)
+- **Access**: All Authenticated Roles
+
+#### POST /api/discount/rules
 - **Access**: `admin`, `finance_ops`
 - **Request Body**:
 ```json
 {
-  "rule_name": "Enterprise Hardware Discount Cap",
+  "rule_name": "Enterprise Hardware Cap",
   "category_type": "hardware",
   "max_discount_pct": 15.0
 }
 ```
 
+#### DELETE /api/discount/rules/:id
+- **Access**: `admin`, `finance_ops`
+
 ---
 
-### 4.5 Quotations & Risk Pre-flight Engine
+### 4.7 Quotations & Real-Time Risk Engine
 
-#### GET /quotations
+#### GET /api/quotations
 - **Access**: All Authenticated Roles
 
-#### POST /quotations
+#### GET /api/quotations/:id
+- **Access**: All Authenticated Roles
+
+#### POST /api/quotations
 - **Access**: `sales_rep`, `sales_manager`, `finance_ops`, `admin`
 - **Request Body**:
 ```json
@@ -249,26 +367,16 @@ export default apiRequest;
   "line_items": [
     {
       "product_id": "501",
-      "product_name": "Enterprise Server X",
       "category_type": "hardware",
       "quantity": 5,
       "unit_price": 1000.0,
       "cost_price": 700.0,
       "discount_pct": 12.0
-    },
-    {
-      "product_id": "502",
-      "product_name": "Implementation Service",
-      "category_type": "service",
-      "quantity": 1,
-      "unit_price": 2000.0,
-      "cost_price": 1200.0,
-      "discount_pct": 18.0
     }
   ]
 }
 ```
-- **Response Payload (201 Created)**:
+- **Response (201 Created)**:
 ```json
 {
   "id": "1102",
@@ -277,38 +385,43 @@ export default apiRequest;
   "status": "pending_approval",
   "requires_approval": true,
   "approval_levels": ["sales_manager", "finance_ops"],
-  "total_amount": 6390.0,
+  "total_amount": 6390.00,
   "overall_margin_pct": 33.33
 }
 ```
 
-#### POST /quotations/:id/re-evaluate-risk
+#### PUT /api/quotations/:id
+- **Access**: `sales_rep`, `sales_manager`, `finance_ops`, `admin`
+
+#### DELETE /api/quotations/:id
+- **Access**: `admin`
+
+#### POST /api/quotations/:id/re-evaluate-risk
 - **Access**: `sales_rep`, `sales_manager`, `finance_ops`, `admin`
 
 ---
 
-### 4.6 Approvals Module
+### 4.8 Multi-Tier Approval Workflow
 
-#### GET /approvals/pending
+#### GET /api/approvals/pending
 - **Access**: `sales_manager`, `finance_ops`, `admin`
-- **Response Payload (200 OK)**: List of quotes requiring manager/finance approval.
 
-#### POST /approvals/:id/approve
+#### POST /api/approvals/:id/approve
 - **Access**: `sales_manager`, `finance_ops`, `admin`
-- **Request Body**: `{ "comments": "Discount approved due to high annual contract value." }`
+- **Request Body**: `{ "comments": "Approved due to high volume deal size." }`
 
-#### POST /approvals/:id/reject
+#### POST /api/approvals/:id/reject
 - **Access**: `sales_manager`, `finance_ops`, `admin`
-- **Request Body**: `{ "reason": "Margin below minimum threshold." }`
+- **Request Body**: `{ "reason": "Margin fell below minimum corporate floor." }`
 
 ---
 
-### 4.7 Negotiation Portal Module
+### 4.9 Customer Portal Negotiations
 
-#### GET /negotiations
+#### GET /api/negotiations
 - **Access**: All Authenticated Roles
 
-#### POST /negotiations/:quoteId/counter
+#### POST /api/negotiations/:quoteId/counter
 - **Access**: `customer`, `sales_rep`, `sales_manager`, `finance_ops`, `admin`
 - **Request Body**:
 ```json
@@ -318,17 +431,17 @@ export default apiRequest;
 }
 ```
 
-#### POST /negotiations/:quoteId/accept
+#### POST /api/negotiations/:quoteId/accept
 - **Access**: `customer`, `sales_rep`, `sales_manager`, `finance_ops`, `admin`
 
 ---
 
-### 4.8 Upsell & Cross-Sell Engine
+### 4.10 Live Upsell & Recommendation Engine
 
-#### GET /upsell-rules
+#### GET /api/upsell-rules
 - **Access**: All Authenticated Roles
 
-#### POST /upsell/recommendations
+#### POST /api/upsell/recommendations
 - **Access**: All Authenticated Roles
 - **Request Body**:
 ```json
@@ -338,7 +451,7 @@ export default apiRequest;
   ]
 }
 ```
-- **Response Payload (200 OK)**:
+- **Response (200 OK)**:
 ```json
 {
   "currentMarginPct": 33.33,
@@ -350,7 +463,6 @@ export default apiRequest;
       "standaloneMarginPct": 80.0,
       "marginDeltaPct": 4.17,
       "isMarginPositive": true,
-      "reason": "Frequently bought together",
       "rankScore": 2.4
     }
   ]
@@ -359,27 +471,23 @@ export default apiRequest;
 
 ---
 
-### 4.9 Warehouses & Inventory Module
+### 4.11 Multi-Warehouse Inventory & Fulfillment
 
-#### GET /warehouses
+#### GET /api/warehouses
 - **Access**: All Authenticated Roles
 
-#### GET /inventory
+#### POST /api/warehouses
+- **Access**: `admin`
+
+#### GET /api/inventory
 - **Access**: All Authenticated Roles
 
-#### POST /inventory/adjust
+#### POST /api/inventory/adjust
 - **Access**: `admin`, `finance_ops`, `sales_manager`
 
----
-
-### 4.10 Orders & Fulfillment Engine
-
-#### GET /orders
+#### GET /api/fulfillment/splits/:quoteId
 - **Access**: All Authenticated Roles
-
-#### GET /fulfillment/splits/:quoteId
-- **Access**: All Authenticated Roles
-- **Response Payload (200 OK)**:
+- **Response (200 OK)**:
 ```json
 {
   "status": "fulfilled",
@@ -405,41 +513,61 @@ export default apiRequest;
 }
 ```
 
----
-
-### 4.11 Subscriptions, Invoices & Credit Notes Module
-
-#### GET /subscriptions
-- **Access**: All Authenticated Roles
-
-#### GET /subscription-plans
-- **Access**: All Authenticated Roles
-
-#### GET /invoices
-- **Access**: All Authenticated Roles
-
-#### GET /invoices/:id
-- **Access**: All Authenticated Roles
-- **Response Payload (200 OK)**: Includes full hybrid billing schedule (one-time hardware vs recurring subscriptions).
-
-#### GET /credit-notes
-- **Access**: All Authenticated Roles
+#### POST /api/fulfillment/ship
+- **Access**: `admin`, `sales_manager`, `finance_ops`
 
 ---
 
-### 4.12 Payment Gateway APIs (Razorpay Integration)
+### 4.12 Orders, Billing, Invoices & Subscriptions
 
-#### POST /payments/create-order
+#### GET /api/orders
+- **Access**: All Authenticated Roles
+
+#### GET /api/orders/:id
+- **Access**: All Authenticated Roles
+
+#### POST /api/orders
+- **Access**: `sales_rep`, `sales_manager`, `finance_ops`, `admin`
+
+#### GET /api/subscriptions
+- **Access**: All Authenticated Roles
+
+#### GET /api/subscription-plans
+- **Access**: All Authenticated Roles
+
+#### POST /api/subscriptions
+- **Access**: `sales_rep`, `sales_manager`, `finance_ops`, `admin`
+
+#### GET /api/invoices
+- **Access**: All Authenticated Roles
+
+#### GET /api/invoices/:id
+- **Access**: All Authenticated Roles
+
+#### POST /api/invoices
+- **Access**: `finance_ops`, `admin`
+
+#### GET /api/credit-notes
+- **Access**: All Authenticated Roles
+
+#### POST /api/credit-notes
+- **Access**: `finance_ops`, `admin`
+
+---
+
+### 4.13 Payment Gateway Integration (Razorpay)
+
+#### POST /api/payments/create-order
 - **Access**: `customer`, `sales_rep`, `sales_manager`, `finance_ops`, `admin`
 - **Request Body**:
 ```json
 {
   "invoice_id": "inv_1101",
-  "amount": 6390.0,
+  "amount": 6390.00,
   "currency": "INR"
 }
 ```
-- **Response Payload (201 Created)**:
+- **Response (201 Created)**:
 ```json
 {
   "success": true,
@@ -458,7 +586,7 @@ export default apiRequest;
 }
 ```
 
-#### POST /payments/verify
+#### POST /api/payments/verify
 - **Access**: `customer`, `sales_rep`, `sales_manager`, `finance_ops`, `admin`
 - **Request Body**:
 ```json
@@ -466,10 +594,10 @@ export default apiRequest;
   "invoice_id": "inv_1101",
   "razorpay_order_id": "order_TYHNGvqLdMAi8I",
   "razorpay_payment_id": "pay_rzp_998877",
-  "razorpay_signature": "hmac_signature_string"
+  "razorpay_signature": "hmac_sha256_signature_string"
 }
 ```
-- **Response Payload (200 OK)**:
+- **Response (200 OK)**:
 ```json
 {
   "success": true,
@@ -481,21 +609,20 @@ export default apiRequest;
 }
 ```
 
-#### POST /payments/webhook
+#### POST /api/payments/webhook
 - **Access**: Public / Gateway Webhook
 - **Request Body**: Razorpay webhook payload (`event: payment.captured`)
-- **Response Payload (200 OK)**: `{ "status": "ok", "received": true }`
+- **Response (200 OK)**: `{ "status": "ok", "received": true }`
 
-#### GET /payments
+#### GET /api/payments
 - **Access**: `sales_manager`, `finance_ops`, `admin`
-- **Response Payload (200 OK)**: Array of all payment transaction records.
 
-#### GET /payments/:id
+#### GET /api/payments/:id
 - **Access**: `sales_rep`, `sales_manager`, `finance_ops`, `admin`
 
-#### GET /payments/:id/status
-- **Access**: All Authenticated Roles (`customer`, `sales_rep`, `sales_manager`, `finance_ops`, `admin`)
-- **Response Payload (200 OK)**:
+#### GET /api/payments/:id/status
+- **Access**: All Authenticated Roles
+- **Response (200 OK)**:
 ```json
 {
   "id": "pay_101",
@@ -509,56 +636,43 @@ export default apiRequest;
 }
 ```
 
-#### POST /payments/:id/refund
+#### POST /api/payments/:id/refund
 - **Access**: `finance_ops`, `admin`
 - **Request Body**:
 ```json
 {
   "amount": 6390.0,
-  "reason": "Customer requested order cancellation"
-}
-```
-- **Response Payload (200 OK)**:
-```json
-{
-  "success": true,
-  "message": "Refund processed successfully",
-  "refund_id": "rfnd_101",
-  "payment_id": "pay_101",
-  "status": "refunded",
-  "amount_refunded": 6390.0
+  "reason": "Customer requested cancellation"
 }
 ```
 
 ---
 
-### 4.13 Analytics, Reports & Deal Health Module
+### 4.14 Analytics, Audit & Interactive Communication Channels
 
-#### GET /dashboard/summary
+#### GET /api/dashboard/summary
 - **Access**: `sales_manager`, `finance_ops`, `admin`
 
-#### GET /reports/sales
+#### GET /api/reports/sales
 - **Access**: `sales_manager`, `finance_ops`, `admin`
 
-#### GET /deal-health/alerts
+#### GET /api/deal-health/alerts
 - **Access**: `sales_manager`, `finance_ops`, `admin`
 
-#### GET /discount-history
+#### GET /api/discount-history
 - **Access**: `sales_manager`, `finance_ops`, `admin`
 
----
-
-### 4.14 Interactive Channels & Audit Module
-
-#### GET /whatsapp/menu
+#### GET /api/whatsapp/menu
 - **Access**: All Authenticated Roles
 
-#### POST /email/send-quotation
+#### POST /api/whatsapp/interact
+- **Access**: All Authenticated Roles
+
+#### POST /api/email/send-quotation
 - **Access**: `sales_rep`, `sales_manager`, `finance_ops`, `admin`
-- **Request Body**: `{ "quotationId": "1101", "recipientEmail": "client@example.com" }`
 
-#### GET /notifications
+#### GET /api/notifications
 - **Access**: All Authenticated Roles
 
-#### GET /audit
+#### GET /api/audit
 - **Access**: `sales_manager`, `finance_ops`, `admin`

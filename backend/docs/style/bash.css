@@ -1,0 +1,8 @@
+.md-file-header-container {
+  width: 100%;
+  display: flex;
+}
+
+.md-file-header-container select {
+  margin-left: auto;
+}
