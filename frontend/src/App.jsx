@@ -18,6 +18,7 @@ import InvoiceDetail from './pages/InvoiceDetail';
 import DealHealth from './pages/DealHealth';
 import Reports from './pages/Reports';
 import Products from './pages/Products';
+import AdminUsers from './pages/AdminUsers';
 import CustomerPortal from './pages/CustomerPortal';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -41,9 +42,9 @@ const App = () => {
       <AuthProvider>
         <DataProvider>
           <Routes>
-            {/* Public Auth Routes */}
+            {/* Public Auth Routes - Sign In Only */}
             <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Login />} />
+            <Route path="/signup" element={<Navigate to="/login" replace />} />
             
             {/* Main Role-Based Dashboard */}
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -55,6 +56,10 @@ const App = () => {
             <Route path="/finance/dashboard" element={<ProtectedRoute allowedRoles={['finance']}><Dashboard /></ProtectedRoute>} />
             <Route path="/customer/portal" element={<ProtectedRoute allowedRoles={['customer']}><Dashboard /></ProtectedRoute>} />
             
+            {/* Admin Specific Routes */}
+            <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminUsers /></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
+
             {/* Feature Routes */}
             <Route path="/quotations" element={<ProtectedRoute><QuotationsList /></ProtectedRoute>} />
             <Route path="/quotations/new" element={<ProtectedRoute><QuotationBuilder /></ProtectedRoute>} />
@@ -70,10 +75,8 @@ const App = () => {
             <Route path="/deal-health" element={<ProtectedRoute><DealHealth /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-            <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />
             
             {/* Customer Public Interactive Portal View */}
-            <Route path="/portal/:quoteId font" element={<CustomerPortal />} />
             <Route path="/portal/:quoteId" element={<CustomerPortal />} />
             
             {/* Catch All Redirect */}

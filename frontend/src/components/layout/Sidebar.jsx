@@ -39,6 +39,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
           { label: 'Deal Health (All)', path: '/deal-health', icon: Activity },
           { label: 'Reports (All)', path: '/reports', icon: BarChart3 },
           { label: 'Products', path: '/products', icon: Package },
+          { label: 'User Management', path: '/admin/users', icon: Settings },
           { label: 'Admin Settings', path: '/admin/settings', icon: Settings },
         ];
       case 'manager':

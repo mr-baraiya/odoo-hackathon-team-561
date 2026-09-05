@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SEED_USERS } from '../utils/constants';
+import { loginApi, getUsersApi, createUserApi } from '../services/api';
 
 const AuthContext = createContext();
 const SESSION_KEY = 'dealflow_session';
-const REGISTERED_USERS_KEY = 'dealflow_registered_users';
+const ADMIN_CREATED_USERS_KEY = 'dealflow_admin_created_users';
 
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(() => {
@@ -25,29 +26,43 @@ export const AuthProvider = ({ children }) => {
   const user = session?.user || null;
   const isAuthenticated = !!(session && new Date(session.expiresAt) > new Date());
 
-  const getRegisteredUsers = () => {
+  // Helper to normalize backend role strings
+  const normalizeRole = (roleStr) => {
+    if (!roleStr) return 'rep';
+    const r = roleStr.toLowerCase();
+    if (r === 'sales_rep' || r === 'rep') return 'rep';
+    if (r === 'sales_manager' || r === 'manager') return 'manager';
+    if (r === 'finance_ops' || r === 'finance') return 'finance';
+    if (r === 'admin' || r === 'administrator') return 'admin';
+    if (r === 'customer' || r === 'client') return 'customer';
+    return r;
+  };
+
+  const getAdminCreatedUsers = () => {
     try {
-      const saved = localStorage.getItem(REGISTERED_USERS_KEY);
+      const saved = localStorage.getItem(ADMIN_CREATED_USERS_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
       return [];
     }
   };
 
-  const createSession = (userData) => {
-    // 24 hours expiry
+  const createSession = (userData, customToken = null) => {
+    const role = normalizeRole(userData.role);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const newSession = {
       user: {
         id: userData.id || `user_${Date.now()}`,
-        name: userData.name,
+        name: userData.name || userData.full_name || 'User',
         email: userData.email,
-        role: userData.role || 'rep',
-        avatar: userData.avatar || userData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        phone: userData.phone || '',
+        role: role,
+        avatar: userData.avatar || (userData.name || userData.full_name || 'US').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+        isActive: userData.isActive !== undefined ? userData.isActive : true
       },
-      token: `jwt_token_${Date.now()}`,
+      token: customToken || `jwt_token_${Date.now()}`,
       expiresAt,
-      permissions: getPermissionsForRole(userData.role)
+      permissions: getPermissionsForRole(role)
     };
 
     setSession(newSession);
@@ -73,44 +88,70 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const cleanEmail = email.trim().toLowerCase();
-    const registered = getRegisteredUsers();
-    const allUsers = [...SEED_USERS, ...registered];
 
+    // 1. Try Backend API login
+    try {
+      const response = await loginApi(cleanEmail, password);
+      if (response.data && response.data.token) {
+        return createSession(response.data.user || { email: cleanEmail, role: response.data.role }, response.data.token);
+      }
+    } catch (apiErr) {
+      console.warn('Backend API server unreachable or login failed on server. Falling back to local seed accounts.', apiErr?.message);
+    }
+
+    // 2. Fallback to Seed Users & Admin Created Users
+    const localCreated = getAdminCreatedUsers();
+    const allUsers = [...SEED_USERS, ...localCreated];
     const found = allUsers.find(u => u.email.toLowerCase() === cleanEmail);
 
     if (!found) {
-      throw new Error('No user found with this email address.');
+      throw new Error('No user found with this email address. Contact System Administrator for access.');
     }
 
     if (found.password !== password) {
-      throw new Error('Incorrect password. Please check your credentials.');
+      throw new Error('Incorrect password. Please verify your login credentials.');
+    }
+
+    if (found.isActive === false) {
+      throw new Error('Account deactivated. Please contact your System Administrator.');
     }
 
     return createSession(found);
   };
 
-  const signup = async ({ name, email, password, role }) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const registered = getRegisteredUsers();
-    const allUsers = [...SEED_USERS, ...registered];
+  // Admin-only User Creation
+  const createUser = async (userData) => {
+    const cleanEmail = userData.email.trim().toLowerCase();
+    const role = normalizeRole(userData.role);
+    const localCreated = getAdminCreatedUsers();
+    const allUsers = [...SEED_USERS, ...localCreated];
 
     if (allUsers.some(u => u.email.toLowerCase() === cleanEmail)) {
-      throw new Error('An account with this email address already exists.');
+      throw new Error('A user with this email address already exists.');
     }
 
     const newUser = {
       id: `user_${Date.now()}`,
-      name: name.trim(),
+      name: userData.name.trim(),
       email: cleanEmail,
-      password,
-      role: role || 'rep',
-      avatar: name.trim().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+      phone: userData.phone || '',
+      password: userData.password || 'TempPass123',
+      role: role,
+      avatar: userData.name.trim().split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+      isActive: true,
+      createdAt: new Date().toISOString()
     };
 
-    const updated = [...registered, newUser];
-    localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(updated));
+    // Try posting to API if online
+    try {
+      await createUserApi(newUser);
+    } catch (apiErr) {
+      console.warn('Backend API unreachable for createUser, saving locally.', apiErr?.message);
+    }
 
-    return createSession(newUser);
+    const updated = [...localCreated, newUser];
+    localStorage.setItem(ADMIN_CREATED_USERS_KEY, JSON.stringify(updated));
+    return newUser;
   };
 
   const logout = () => {
@@ -119,7 +160,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isAuthenticated, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, session, isAuthenticated, login, createUser, logout, getAdminCreatedUsers }}>
       {children}
     </AuthContext.Provider>
   );

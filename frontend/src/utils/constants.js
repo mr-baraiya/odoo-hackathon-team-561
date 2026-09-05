@@ -1,3 +1,5 @@
+export const API_BASE_URL = 'http://192.168.9.168:5000';
+
 export const ROLES = {
   ADMIN: 'admin',
   REP: 'rep',
@@ -8,49 +10,59 @@ export const ROLES = {
 
 export const SEED_USERS = [
   { 
-    id: '1', 
-    name: 'Admin User', 
-    email: 'admin@dealflow.com', 
-    password: 'admin123', 
+    id: '00000000-0000-0000-0000-000000000105', 
+    name: 'System Administrator', 
+    email: 'vvbaraiya32@gmail.com', 
+    phone: '+917046537550',
+    password: 'Darshan@1234', 
     role: 'admin',
-    avatar: 'AU',
-    dashboard: '/admin/dashboard'
+    avatar: 'SA',
+    dashboard: '/admin/dashboard',
+    isActive: true
   },
   { 
-    id: '2', 
-    name: 'Rahul Sharma', 
-    email: 'rep@dealflow.com', 
-    password: 'rep123', 
+    id: '00000000-0000-0000-0000-000000000101', 
+    name: 'Sales Representative', 
+    email: 'baraiyavishalbhai32@gmail.com', 
+    phone: '+917383359679',
+    password: 'Darshan@1234', 
     role: 'rep',
-    avatar: 'RS',
-    dashboard: '/rep/dashboard'
+    avatar: 'SR',
+    dashboard: '/rep/dashboard',
+    isActive: true
   },
   { 
-    id: '3', 
-    name: 'Priya Patel', 
-    email: 'manager@dealflow.com', 
-    password: 'manager123', 
+    id: '00000000-0000-0000-0000-000000000102', 
+    name: 'Sales Manager', 
+    email: 'singhsaurabh43431@gmail.com', 
+    phone: '+919508461241',
+    password: 'Darshan@1234', 
     role: 'manager',
-    avatar: 'PP',
-    dashboard: '/manager/dashboard'
+    avatar: 'SM',
+    dashboard: '/manager/dashboard',
+    isActive: true
   },
   { 
-    id: '4', 
-    name: 'Amit Kumar', 
-    email: 'finance@dealflow.com', 
-    password: 'finance123', 
+    id: '00000000-0000-0000-0000-000000000103', 
+    name: 'Finance Operations', 
+    email: 'baraiyavijaybhai32@gmail.com', 
+    phone: '+919624994057',
+    password: 'Darshan@1234', 
     role: 'finance',
-    avatar: 'AK',
-    dashboard: '/finance/dashboard'
+    avatar: 'FO',
+    dashboard: '/finance/dashboard',
+    isActive: true
   },
   { 
-    id: '5', 
-    name: 'ABC Company', 
-    email: 'customer@dealflow.com', 
-    password: 'customer123', 
+    id: '00000000-0000-0000-0000-000000000104', 
+    name: 'Demo Customer', 
+    email: 'mayankpathar49@gmail.com', 
+    phone: '+919274488638',
+    password: 'Darshan@1234', 
     role: 'customer',
-    avatar: 'ABC',
-    dashboard: '/customer/portal'
+    avatar: 'DC',
+    dashboard: '/customer/portal',
+    isActive: true
   }
 ];
 
