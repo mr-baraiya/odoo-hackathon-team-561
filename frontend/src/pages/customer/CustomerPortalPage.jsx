@@ -39,6 +39,8 @@ export default function CustomerPortalPage() {
     getPortalOrders,
     getPortalInvoices,
     payPortalInvoice,
+    createRazorpayOrder,
+    verifyRazorpayPayment,
     getPortalNotifications,
     sendWhatsAppToRep,
     createPortalQuotation,
@@ -371,6 +373,9 @@ export default function CustomerPortalPage() {
             <CustomerInvoicesTab
               invoices={invoices}
               onPayInvoice={handlePayInvoice}
+              onCreateRazorpayOrder={createRazorpayOrder}
+              onVerifyRazorpayPayment={verifyRazorpayPayment}
+              onRefreshPortal={loadPortalData}
             />
           )}
 

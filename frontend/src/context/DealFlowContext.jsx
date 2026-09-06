@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiClient from '../services/apiClient';
 
+import paymentService from '../services/payment.service';
+
 const API_BASE = '/dealflow';
 
 const DealFlowContext = createContext(null);
@@ -176,6 +178,16 @@ export function DealFlowProvider({ children }) {
     return res;
   };
 
+  const createRazorpayOrder = async (invoiceId, amount, currency = 'INR') => {
+    return await paymentService.createRazorpayOrder(invoiceId, amount, currency);
+  };
+
+  const verifyRazorpayPayment = async (paymentData) => {
+    const res = await paymentService.verifyRazorpayPayment(paymentData);
+    await refreshAllData();
+    return res;
+  };
+
   const getPortalNotifications = async () => {
     const res = await apiClient.get(`${API_BASE}/customer-portal/notifications`);
     return res;
@@ -231,6 +243,8 @@ export function DealFlowProvider({ children }) {
         getPortalOrders,
         getPortalInvoices,
         payPortalInvoice,
+        createRazorpayOrder,
+        verifyRazorpayPayment,
         getPortalNotifications,
         createPortalQuotation,
         sendWhatsAppToRep,

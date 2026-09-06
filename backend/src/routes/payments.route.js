@@ -43,6 +43,8 @@ const PAYMENTS = [
 // Export shared PAYMENTS reference for other modules if needed
 router.PAYMENTS = PAYMENTS;
 
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
 /**
  * 1. POST /api/payments/create-order
  * Customer / Sales Rep / Finance / Admin
@@ -55,13 +57,43 @@ router.post('/create-order', authenticateJWT, authorizeRoles('customer', 'sales_
       return res.status(400).json({ success: false, message: 'invoice_id is required' });
     }
 
-    // Lookup invoice / quote
-    const quote = seed.QUOTATIONS.find((q) => `inv_${q.id}` === invoice_id || q.id === invoice_id || q.quote_number === invoice_id);
-    const payableAmount = Number(amount || quote?.total_amount || 1000);
-    const amountInPaisa = Math.round(payableAmount * 100);
+    // Lookup invoice / quote from DB or Seed
+    let payableAmount = Number(amount || 0);
+    let customerName = 'Customer';
 
+    if (!payableAmount) {
+      try {
+        const { getConnection } = require('../service/database');
+        const db = await getConnection();
+        const invRow = await db.queryOne(
+          `SELECT i.*, c.company_name 
+           FROM invoices i 
+           LEFT JOIN quotations q ON i.quotation_id = q.id 
+           LEFT JOIN customers c ON q.customer_id = c.id 
+           WHERE i.id::text = $1 OR i.invoice_number = $1 
+           LIMIT 1`,
+          [invoice_id]
+        );
+        if (invRow) {
+          const balance = Number(invRow.amount_due || 0) - Number(invRow.amount_paid || 0);
+          payableAmount = balance > 0 ? balance : Number(invRow.amount_due || 0);
+          customerName = invRow.company_name || 'Customer';
+        }
+        db.release();
+      } catch (dbErr) {
+        console.warn('DB lookup for invoice amount warning:', dbErr.message);
+      }
+    }
+
+    if (!payableAmount) {
+      const quote = seed.QUOTATIONS.find((q) => `inv_${q.id}` === invoice_id || q.id === invoice_id || q.quote_number === invoice_id);
+      payableAmount = Number(quote?.total_amount || 1000);
+      customerName = quote?.customer_name || customerName;
+    }
+
+    const amountInPaisa = Math.round(payableAmount * 100);
     let razorpayOrder = null;
-    const receipt = `rcpt_${invoice_id}_${Date.now()}`;
+    const receipt = `rcpt_${invoice_id.toString().replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 30)}_${Date.now()}`;
 
     if (razorpayInstance) {
       try {
@@ -71,7 +103,7 @@ router.post('/create-order', authenticateJWT, authorizeRoles('customer', 'sales_
           receipt,
           notes: {
             invoice_id,
-            customer_name: quote?.customer_name || 'Customer',
+            customer_name: customerName,
           },
         });
       } catch (rzpErr) {
