@@ -1,98 +1,122 @@
-# C-Manager Frontend
+# DealFlow360 — Frontend Application
 
-A modern inventory management system built with React, TypeScript, and Vite.
+DealFlow360 Frontend is an enterprise B2B Sales Operations web workspace built with React 19, Vite, Tailwind CSS, and TanStack React Query. It provides interactive quotation drafting, real-time blended risk score computation, live margin impact previews, multi-warehouse fulfillment allocation visualizers, customer negotiation portals, and Razorpay payment checkout integration.
 
-## Features
+---
 
-- 📦 Inventory Management
-  - Track stock levels
-  - Set minimum and maximum stock thresholds
-  - Manage inventory locations
-  - View inventory transactions
-- 🏢 Multi-company Support
-  - Company-specific inventory settings
-  - Separate inventory tracking per company
-- 🔄 Real-time Updates
-  - Fast refresh with Vite
-  - React Query for efficient data management
-- 🎨 Modern UI
-  - Built with Tailwind CSS
-  - Responsive design
-  - Keyboard shortcuts support
+## Core Capabilities
 
-## Tech Stack
+- Quotation Management & Real-Time Risk Governance: Line-item quotation drafting with live risk score calculation, approval warnings, and tier ceiling checks.
+- Live Margin & Upsell Engine: Real-time margin delta previews and co-purchase recommendation cards.
+- Interactive Customer Portal: Enables customers to review quotations, submit counter-discount proposals, and trigger real-time risk re-evaluations.
+- Multi-Warehouse Fulfillment View: Visual representation of stock allocation splits across distribution depots and backorder tracking.
+- Razorpay Payment Gateway Checkout: Integrated payment order creation, HMAC signature verification, and instant invoice status updates.
+- Role-Based Dynamic UI: Dedicated view layouts and permission guards tailored to system roles (`admin`, `sales_manager`, `finance_ops`, `sales_rep`, `customer`).
 
-- [React](https://reactjs.org/) - UI Library
-- [TypeScript](https://www.typescriptlang.org/) - Type Safety
-- [Vite](https://vitejs.dev/) - Build Tool
-- [TanStack Query](https://tanstack.com/query) - Data Fetching
-- [React Hook Form](https://react-hook-form.com/) - Form Management
-- [Zod](https://zod.dev/) - Schema Validation
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [Lucide Icons](https://lucide.dev/) - Icon Set
+---
+
+## Technical Stack
+
+- Library: React 19
+- Build Tool: Vite
+- Styling: Tailwind CSS
+- Data Fetching & State: TanStack React Query v5
+- Router: React Router v7
+- Form Management: React Hook Form & Zod Schema Validation
+- UI Components: Radix UI Primitives & Shadcn UI Components
+- Icons: Lucide React
+
+---
+
+## Workspace Structure
+
+```text
+frontend/
+├── public/                 # Static public assets
+├── src/                    # Source code directory
+│   ├── assets/             # Images, graphics, and stylesheets
+│   ├── components/         # Reusable UI components & modal dialogs
+│   │   ├── ui/             # Standard Shadcn UI primitive components
+│   │   ├── QuoteBuilder.jsx# Dynamic line-item quote composition workspace
+│   │   ├── RiskBadge.jsx   # Blended risk score indicator
+│   │   └── PaymentModal.jsx# Razorpay checkout wrapper
+│   ├── hooks/              # Custom React hooks (auth, API, web sockets)
+│   ├── pages/              # Primary route views (Dashboard, Quotes, Invoices, Portal)
+│   ├── services/           # REST API client endpoints & fetch helpers
+│   ├── types/              # TypeScript interface definitions
+│   ├── utils/              # Helper utilities (currency formatters, calculations)
+│   ├── App.jsx             # Main application component and routing configuration
+│   └── main.jsx            # Application entry point
+├── .env.example            # Environment configuration template
+├── package.json            # Node.js project manifest & scripts
+└── vite.config.ts          # Vite build configuration
+```
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
+- Node.js (v18.0.0 or higher)
 - npm or yarn
 
-### Installation
+### Environment Setup
 
-1. Clone the repository:
+1. Copy `.env.example` to `.env`:
 
 ```bash
-git clone [repository-url]
-cd c-manager-front
+cp .env.example .env
 ```
 
-2. Install dependencies:
+2. Configure environment variables in `.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
+```
+
+### Installation & Local Execution
+
+1. Install project dependencies:
 
 ```bash
 npm install
-# or
-yarn install
 ```
 
-3. Start the development server:
+2. Start the local development server with hot module replacement:
 
 ```bash
 npm run dev
-# or
-yarn dev
 ```
 
-The application will be available at `http://localhost:5173`
+The application will launch at `http://localhost:5173`.
 
-## Development
+### Production Build
 
-### Project Structure
+1. Compile production assets:
 
-```
-src/
-├── components/     # Reusable UI components
-├── pages/         # Page components
-├── services/      # API services
-├── hooks/         # Custom React hooks
-└── utils/         # Utility functions
+```bash
+npm run build
 ```
 
-### Available Scripts
+2. Preview the production build locally:
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run lint` - Run ESLint
-- `npm run preview` - Preview production build
+```bash
+npm run preview
+```
 
-## Contributing
+3. Run code quality linter:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```bash
+npm run lint
+```
 
-## License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## Integration with Backend Service
+
+The frontend communicates with the DealFlow360 REST API service (`http://localhost:5000/api`) using JSON Web Tokens (JWT) for authentication.
+
+For endpoint schemas, payload formats, and integration details, consult:
+
+`../docs/frontend_api_guide.md`

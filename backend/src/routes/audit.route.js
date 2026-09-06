@@ -6,7 +6,7 @@ const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middlewa
 const router = express.Router();
 
 // --- 1. GET ALL AUDIT LOGS (DB-Connected) ---
-router.get('/', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+router.get('/', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops'), async (req, res) => {
   try {
     const { entity_type, action, search } = req.query;
 
@@ -72,7 +72,7 @@ router.get('/', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finan
 });
 
 // --- 2. GET AUDIT SUMMARY METRICS (DB-Connected) ---
-router.get('/summary', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+router.get('/summary', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops'), async (req, res) => {
   try {
     const db = await getConnection();
     const rows = await db.queryAll(`
@@ -117,7 +117,7 @@ router.get('/summary', authenticateJWT, authorizeRoles('admin', 'sales_manager',
 });
 
 // --- 3. GET SINGLE AUDIT RECORD BY ID (DB-Connected) ---
-router.get('/:id', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+router.get('/:id', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops'), async (req, res) => {
   try {
     const db = await getConnection();
     const row = await db.queryOne(
@@ -180,7 +180,7 @@ router.post('/', authenticateJWT, async (req, res) => {
 });
 
 // --- 5. GET AUDIT LOGS BY ENTITY TYPE AND ENTITY ID (DB-Connected) ---
-router.get('/:entityType/:entityId', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+router.get('/:entityType/:entityId', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops'), async (req, res) => {
   try {
     const { entityType, entityId } = req.params;
     const db = await getConnection();

@@ -11,7 +11,12 @@ import {
   CheckCircle,
   Clock,
   Inbox,
+  Sparkles,
 } from 'lucide-react';
+import {
+  generateEmailMagicLinkTemplate,
+  generateWhatsAppMagicLinkTemplate,
+} from '../../../utils/communicationTemplates';
 
 export default function SalesRepCommunicationTab() {
   const [customers, setCustomers] = useState([]);
@@ -21,6 +26,45 @@ export default function SalesRepCommunicationTab() {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
+
+  const selectedCust = customers.find((c) => String(c.id) === String(selectedCustomerId));
+
+  const handleLoadMagicLinkTemplate = async () => {
+    if (!selectedCust) {
+      toast.error('Please select a customer recipient first.');
+      return;
+    }
+    try {
+      const emailToUse = selectedCust.primary_contact_email || 'mayankpathar49@gmail.com';
+      toast.loading('Generating magic login link...', { id: 'magic' });
+      const res = await apiClient.post('/auth/magic-link', { email: emailToUse, skipNotify: true });
+      const magicUrl = res?.magicUrl || res?.data?.magicUrl || `http://localhost:5173/m/${res?.shortCode || res?.data?.shortCode || 'token'}`;
+      toast.dismiss('magic');
+
+      if (channel === 'whatsapp') {
+        const { message: waMsg } = generateWhatsAppMagicLinkTemplate({
+          companyName: selectedCust.company_name,
+          contactName: selectedCust.primary_contact_name,
+          magicUrl,
+        });
+        setMessage(waMsg);
+      } else {
+        const { subject: mailSubj, body: mailBody } = generateEmailMagicLinkTemplate({
+          companyName: selectedCust.company_name,
+          contactName: selectedCust.primary_contact_name,
+          contactEmail: selectedCust.primary_contact_email,
+          magicUrl,
+        });
+        setSubject(mailSubj);
+        setMessage(mailBody);
+      }
+      toast.success(`Magic Link ${channel.toUpperCase()} template generated for ${selectedCust.company_name}!`);
+    } catch (err) {
+      console.error('[MAGIC-LINK] Error:', err);
+      toast.dismiss('magic');
+      toast.error('Could not generate magic link template.');
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -42,8 +86,6 @@ export default function SalesRepCommunicationTab() {
   useEffect(() => {
     loadData();
   }, []);
-
-  const selectedCust = customers.find((c) => String(c.id) === String(selectedCustomerId));
 
   const handleSendMessage = async (e) => {
     if (e) e.preventDefault();
@@ -160,9 +202,19 @@ export default function SalesRepCommunicationTab() {
             )}
 
             <div>
-              <label className="font-bold text-slate-700 block mb-1">
-                {channel === 'email' ? 'Email Body Content' : 'WhatsApp Message'}
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="font-bold text-slate-700 block">
+                  {channel === 'email' ? 'Email Body Content' : 'WhatsApp Message'}
+                </label>
+                <button
+                  type="button"
+                  onClick={handleLoadMagicLinkTemplate}
+                  className="text-[11px] font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>+ Load Magic Link Template ({channel === 'email' ? 'Email' : 'WhatsApp'})</span>
+                </button>
+              </div>
               <textarea
                 rows={5}
                 required

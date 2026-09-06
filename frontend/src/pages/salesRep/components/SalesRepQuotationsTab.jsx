@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   UserPlus,
   Building,
+  Clock,
 } from 'lucide-react';
 
 export default function SalesRepQuotationsTab({ quotations = [], customers: customersProp = [], onRefresh }) {
@@ -239,11 +240,115 @@ export default function SalesRepQuotationsTab({ quotations = [], customers: cust
     }
   };
 
-  const filteredQuotes = quotations.filter(
-    (q) =>
-      q.quote_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      q.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getQuotePriority = (q) => {
+    const status = (q.status || '').toLowerCase();
+    if (q.has_open_negotiation || status === 'under_negotiation' || status === 'customer_counter_offer') return 1;
+    if (status === 'pending_approval') return 2;
+    if (status === 'draft') return 3;
+    if (status === 'sent_to_customer') return 4;
+    return 5;
+  };
+
+  const filteredQuotes = quotations
+    .filter(
+      (q) =>
+        q.quote_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        q.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => getQuotePriority(a) - getQuotePriority(b) || new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+  const handleQuickAccept = async (q) => {
+    try {
+      toast.loading(`Accepting quotation #${q.quote_number}...`, { id: 'accepting' });
+      if (q.has_open_negotiation || q.status === 'under_negotiation') {
+        await apiClient.post(`/sales-rep/quotations/${q.id}/respond-negotiation`, {
+          action: 'accept',
+          revisedDiscountPct: q.order_level_discount_pct || 0,
+          message: 'Counter-offer accepted directly by representative.',
+        });
+      } else {
+        await apiClient.post(`/customer-portal/quotations/${q.id}/confirm`);
+      }
+      toast.dismiss('accepting');
+      toast.success(`Quotation #${q.quote_number} accepted and confirmed!`);
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      console.error('Accept quote error:', err);
+      toast.dismiss('accepting');
+      toast.error(err?.response?.data?.message || 'Failed to accept quotation.');
+    }
+  };
+
+  const getStatusBadge = (status, hasOpenNeg) => {
+    if (hasOpenNeg) {
+      return (
+        <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-amber-100/90 text-amber-900 border border-amber-300 shadow-2xs">
+          <MessageSquare className="w-3 h-3 text-amber-700" />
+          <span>Customer Counter-Offer</span>
+        </span>
+      );
+    }
+
+    const s = (status || '').toLowerCase();
+    switch (s) {
+      case 'under_negotiation':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-indigo-100/90 text-indigo-900 border border-indigo-300 shadow-2xs">
+            <Clock className="w-3 h-3 text-indigo-700" />
+            <span>UNDER NEGOTIATION</span>
+          </span>
+        );
+      case 'pending_approval':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-purple-100/90 text-purple-900 border border-purple-300 shadow-2xs">
+            <ShieldCheck className="w-3 h-3 text-purple-700" />
+            <span>PENDING APPROVAL</span>
+          </span>
+        );
+      case 'sent_to_customer':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-sky-100/90 text-sky-900 border border-sky-300 shadow-2xs">
+            <Send className="w-3 h-3 text-sky-700" />
+            <span>SENT TO CUSTOMER</span>
+          </span>
+        );
+      case 'draft':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs">
+            <FileText className="w-3 h-3 text-slate-600" />
+            <span>DRAFT</span>
+          </span>
+        );
+      case 'approved':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-teal-100/90 text-teal-900 border border-teal-300 shadow-2xs">
+            <CheckCircle className="w-3 h-3 text-teal-700" />
+            <span>APPROVED</span>
+          </span>
+        );
+      case 'confirmed':
+      case 'fulfilled':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100/90 text-emerald-900 border border-emerald-300 shadow-2xs">
+            <CheckCircle className="w-3 h-3 text-emerald-700" />
+            <span>{s.toUpperCase()}</span>
+          </span>
+        );
+      case 'rejected':
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-rose-100/90 text-rose-900 border border-rose-300 shadow-2xs">
+            <XCircle className="w-3 h-3 text-rose-700" />
+            <span>REJECTED</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-800 border border-slate-300 uppercase shadow-2xs">
+            <span>{status?.replace(/_/g, ' ')}</span>
+          </span>
+        );
+    }
+  };
 
   const handleSendQuotation = async (quoteId) => {
     try {
@@ -358,18 +463,18 @@ export default function SalesRepQuotationsTab({ quotations = [], customers: cust
                       <td className="px-6 py-4 font-bold text-slate-900">${(q.total_amount || 0).toLocaleString()}</td>
                       <td className="px-6 py-4 font-bold text-slate-700">{q.order_level_discount_pct || 0}%</td>
                       <td className="px-6 py-4">
-                        {hasOpenNeg ? (
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            <MessageSquare className="w-3 h-3 text-amber-600" />
-                            <span>Customer Counter-Offer</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
-                            <span>{q.status?.replace(/_/g, ' ')}</span>
-                          </span>
-                        )}
+                        {getStatusBadge(q.status, hasOpenNeg)}
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
+                        {q.status !== 'confirmed' && q.status !== 'fulfilled' && q.status !== 'rejected' && (
+                          <button
+                            onClick={() => handleQuickAccept(q)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs transition-colors inline-flex items-center space-x-1 text-[11px] cursor-pointer"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Accept</span>
+                          </button>
+                        )}
                         {hasOpenNeg ? (
                           <button
                             onClick={() => setSelectedQuote(q)}

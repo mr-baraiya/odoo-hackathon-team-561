@@ -42,17 +42,17 @@ router.post('/webhook', (req, res) => {
 
   if (bodyText === '1' || bodyText.toLowerCase().includes('quote')) {
     const userQuotes = seed.QUOTATIONS.slice(0, 2).map((q) => `• ${q.quote_number}: $${q.total_amount} (${q.status})`).join('\n');
-    replyText = `📄 *DealFlow360 Quotations for ${userName}*:\n\n${userQuotes || 'No active quotations found.'}`;
+    replyText = `*DealFlow360 Quotations for ${userName}*:\n\n${userQuotes || 'No active quotations found.'}`;
   } else if (bodyText === '2' || bodyText.toLowerCase().includes('discount')) {
-    replyText = `🏷️ *Request Discount*:\nPlease respond with your desired discount percentage (e.g. "Counter 10%") to submit for sales manager review.`;
+    replyText = `*Request Discount*:\nPlease respond with your desired discount percentage (e.g. "Counter 10%") to submit for sales manager review.`;
   } else if (bodyText === '3' || bodyText.toLowerCase().includes('accept')) {
-    replyText = `✅ *Accept Quotation*:\nYour quotation has been confirmed and submitted to fulfillment!`;
+    replyText = `*Accept Quotation*:\nYour quotation has been confirmed and submitted to fulfillment!`;
   } else if (bodyText === '4' || bodyText.toLowerCase().includes('order')) {
-    replyText = `📦 *Order Status*:\nOrder #ORD-Q-2026-101 is currently [Pending Fulfillment] at Main Central Warehouse.`;
+    replyText = `*Order Status*:\nOrder #ORD-Q-2026-101 is currently [Pending Fulfillment] at Main Central Warehouse.`;
   } else if (bodyText === '5' || bodyText.toLowerCase().includes('delivery')) {
-    replyText = `🚚 *Delivery Status*:\nEstimated delivery date: 2026-09-12 via FedEx Express (Tracking #FX-88912).`;
+    replyText = `*Delivery Status*:\nEstimated delivery date: 2026-09-12 via FedEx Express (Tracking #FX-88912).`;
   } else {
-    replyText = `🤖 *DealFlow360 WhatsApp Assistant*\n\nHello ${userName}!\nPlease select an option:\n\n1️⃣ View Quotation\n2️⃣ Request Discount\n3️⃣ Accept Quotation\n4️⃣ Order Status\n5️⃣ Delivery Status\n\nReply with 1-5 to proceed.`;
+    replyText = `*DealFlow360 WhatsApp Assistant*\n\nHello ${userName}!\nPlease select an option:\n\n1️⃣ View Quotation\n2️⃣ Request Discount\n3️⃣ Accept Quotation\n4️⃣ Order Status\n5️⃣ Delivery Status\n\nReply with 1-5 to proceed.`;
   }
 
   res.set('Content-Type', 'text/xml');
@@ -62,14 +62,32 @@ router.post('/webhook', (req, res) => {
 </Response>`);
 });
 
+const sendWhatsApp = require('../utils/sendWhatsApp');
+
 // POST /api/whatsapp/send
-router.post('/send', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'sales_rep'), (req, res) => {
+router.post('/send', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'sales_rep'), async (req, res) => {
   const { to, message } = req.body;
-  res.json({
-    success: true,
-    message: `WhatsApp message dispatched to ${to}`,
-    content: message,
-  });
+
+  if (!message || !message.trim()) {
+    return res.status(400).json({ message: 'Message content is required.' });
+  }
+
+  try {
+    const result = await sendWhatsApp({
+      to: to || '+919876543210',
+      message: message.trim(),
+    });
+
+    return res.json({
+      success: true,
+      message: `WhatsApp message dispatched to ${to || 'recipient'}`,
+      content: message,
+      result,
+    });
+  } catch (err) {
+    console.error('Error in POST /api/whatsapp/send:', err);
+    return res.status(500).json({ message: 'Failed to dispatch WhatsApp message.' });
+  }
 });
 
 module.exports = router;

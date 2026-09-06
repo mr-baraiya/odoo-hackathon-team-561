@@ -31,7 +31,6 @@ export default function SalesRepSidebar({
 
   const navItems = [
     { id: 'overview', path: '/sales-rep/overview', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'quotation_requests', path: '/sales-rep/quotation_requests', label: 'Quotation Requests', icon: Inbox, badge: quotationRequestsCount > 0 ? quotationRequestsCount : null, badgeColor: 'bg-amber-100 text-amber-800 border-amber-200' },
     { id: 'quotations', path: '/sales-rep/quotations', label: 'Quotations Directory', icon: FileText, badge: openNegCount > 0 ? `${openNegCount} Action` : null, badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
     { id: 'approvals', path: '/sales-rep/approvals', label: 'Discount Approvals', icon: ShieldCheck, badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : null, badgeColor: 'bg-purple-100 text-purple-800 border-purple-200' },
     { id: 'communication', path: '/sales-rep/communication', label: 'Negotiations & Messaging', icon: MessageSquare },

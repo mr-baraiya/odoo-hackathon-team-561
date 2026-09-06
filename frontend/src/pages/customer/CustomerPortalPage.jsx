@@ -78,8 +78,12 @@ export default function CustomerPortalPage() {
         try {
           const res = await authService.verifyMagicLink(magicToken);
           if (res?.token && res?.user) {
-            loginUser(res.user, res.token);
-            toast.success(`Welcome ${res.user.full_name || res.user.email}!`);
+            const customerUser = {
+              ...res.user,
+              role: res.user.role === 'admin' ? 'admin' : 'customer',
+            };
+            loginUser(customerUser, res.token);
+            toast.success(`Welcome ${customerUser.full_name || customerUser.email}!`);
             searchParams.delete('magicToken');
             searchParams.delete('token');
             setSearchParams(searchParams);

@@ -77,7 +77,7 @@ function authenticateJWT(req, res, next) {
     }
 
     const foundUser = seed.USERS.find((u) => u.id === decoded.id || u.email === decoded.email);
-    req.user = foundUser ? { ...decoded, ...foundUser } : decoded;
+    req.user = foundUser ? { ...foundUser, ...decoded } : decoded;
     return next();
   } catch (err) {
     console.warn('[AUTH MIDDLEWARE ERROR]', err.message);

@@ -380,17 +380,21 @@ router.post('/magic-link', async (req, res) => {
   const magicUrl = `${frontendUrl}/m/${shortCode}`;
   const whatsappUrl = magicUrl.replace('localhost', '127.0.0.1');
 
-  // 1. Generate standard HTML Email using unified enterprise template
-  const htmlContent = magicLinkEmail(magicUrl, recipientName);
+  let mailResult = null;
+  let whatsappResult = null;
 
-  const mailResult = await sendEmail({
-    to: cleanEmail,
-    subject: 'Your DealFlow360 Customer Portal Magic Login Link',
-    html: htmlContent,
-  });
+  if (!req.body.skipNotify) {
+    // 1. Generate standard HTML Email using unified enterprise template
+    const htmlContent = magicLinkEmail(magicUrl, recipientName);
 
-  // 2. Dispatch WhatsApp message (iconless clean text)
-  const whatsappMessage = `DealFlow360 Customer Portal Magic Login
+    mailResult = await sendEmail({
+      to: cleanEmail,
+      subject: 'Your DealFlow360 Customer Portal Magic Login Link',
+      html: htmlContent,
+    }).catch(() => null);
+
+    // 2. Dispatch WhatsApp message
+    const whatsappMessage = `DealFlow360 Customer Portal Magic Login
 
 Hello ${recipientName},
 
@@ -400,14 +404,15 @@ http://127.0.0.1:5173/m/${shortCode}
 
 This link is valid for 24 hours.`;
 
-  const whatsappResult = await sendWhatsApp({
-    to: recipientPhone,
-    message: whatsappMessage,
-    buttonText: 'Login to Customer Portal',
-    buttonUrl: whatsappUrl,
-  });
+    whatsappResult = await sendWhatsApp({
+      to: recipientPhone,
+      message: whatsappMessage,
+      buttonText: 'Login to Customer Portal',
+      buttonUrl: whatsappUrl,
+    }).catch(() => null);
 
-  console.log(`[MAGIC LINK DISPATCHED] Email -> ${cleanEmail} | WhatsApp -> ${recipientPhone}`);
+    console.log(`[MAGIC LINK DISPATCHED] Email -> ${cleanEmail} | WhatsApp -> ${recipientPhone}`);
+  }
 
   return res.json({
     message: 'Magic login link dispatched to your Email and WhatsApp!',
@@ -431,13 +436,20 @@ router.post('/verify-magic-link', async (req, res) => {
   }
 
   const { user, customer } = result;
+  const targetRole = user.role === 'admin' ? 'admin' : 'customer';
+  const customerUser = {
+    ...user,
+    role: targetRole,
+    customer_id: user.customer_id || customer?.id || user.id,
+  };
+
   const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role || 'customer' },
+    { id: customerUser.id, email: customerUser.email, role: targetRole, customer_id: customerUser.customer_id },
     vars.jwtSecret || 'dealflow360_secret',
     { expiresIn: '7d' }
   );
 
-  return res.json({ token: `Bearer ${token}`, user, customer: customer || {} });
+  return res.json({ token: `Bearer ${token}`, user: customerUser, customer: customer || {} });
 });
 
 // GET /api/auth/verify-magic-link
@@ -450,13 +462,20 @@ router.get('/verify-magic-link', async (req, res) => {
   }
 
   const { user, customer } = result;
+  const targetRole = user.role === 'admin' ? 'admin' : 'customer';
+  const customerUser = {
+    ...user,
+    role: targetRole,
+    customer_id: user.customer_id || customer?.id || user.id,
+  };
+
   const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role || 'customer' },
+    { id: customerUser.id, email: customerUser.email, role: targetRole, customer_id: customerUser.customer_id },
     vars.jwtSecret || 'dealflow360_secret',
     { expiresIn: '7d' }
   );
 
-  return res.json({ token: `Bearer ${token}`, user, customer: customer || {} });
+  return res.json({ token: `Bearer ${token}`, user: customerUser, customer: customer || {} });
 });
 
 // 9. POST /api/auth/register-customer

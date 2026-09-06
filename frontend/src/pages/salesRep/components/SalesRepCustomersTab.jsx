@@ -15,8 +15,13 @@ import {
   CreditCard,
   ShieldAlert,
   Download,
+  Sparkles,
 } from 'lucide-react';
 import { exportInvoicePDF } from '../../../utils/invoicePdfGenerator';
+import {
+  generateEmailMagicLinkTemplate,
+  generateWhatsAppMagicLinkTemplate,
+} from '../../../utils/communicationTemplates';
 
 export default function SalesRepCustomersTab({ customers = [], onRefresh }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,6 +213,41 @@ export default function SalesRepCustomersTab({ customers = [], onRefresh }) {
       toast.error('Failed to dispatch Email.');
     } finally {
       setIsSendingEmail(false);
+    }
+  };
+
+  const handleAttachMagicLink = async (targetType) => {
+    const cust = targetType === 'whatsapp' ? whatsappCustomer : emailCustomer;
+    if (!cust) return;
+
+    try {
+      const emailToUse = cust.primary_contact_email || 'mayankpathar49@gmail.com';
+      console.log(`%c[MAGIC-LINK] Generating magic link for ${cust.company_name} (${emailToUse})...`, 'background: #8b5cf6; color: white; font-weight: bold; padding: 2px 6px;');
+      const res = await apiClient.post('/auth/magic-link', { email: emailToUse, skipNotify: true });
+      const magicUrl = res?.magicUrl || res?.data?.magicUrl || `http://localhost:5173/m/${res?.shortCode || res?.data?.shortCode || 'token'}`;
+
+      if (targetType === 'whatsapp') {
+        const { message } = generateWhatsAppMagicLinkTemplate({
+          companyName: cust.company_name,
+          contactName: cust.primary_contact_name,
+          magicUrl,
+        });
+        setWhatsappMsg(message);
+      } else {
+        const { subject, body } = generateEmailMagicLinkTemplate({
+          companyName: cust.company_name,
+          contactName: cust.primary_contact_name,
+          contactEmail: cust.primary_contact_email,
+          magicUrl,
+        });
+        setEmailSubject(subject);
+        setEmailBody(body);
+      }
+
+      toast.success(`Magic login link generated & template loaded for ${cust.company_name}!`);
+    } catch (err) {
+      console.error('[MAGIC-LINK] Failed to generate magic link:', err);
+      toast.error('Could not generate magic link for customer.');
     }
   };
 
@@ -479,9 +519,19 @@ export default function SalesRepCustomersTab({ customers = [], onRefresh }) {
 
             <form onSubmit={handleSendWhatsApp} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  WhatsApp Message Content <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    WhatsApp Message Content <span className="text-rose-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleAttachMagicLink('whatsapp')}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>+ Attach Magic Login Link</span>
+                  </button>
+                </div>
                 <textarea
                   rows={5}
                   required
@@ -670,9 +720,19 @@ export default function SalesRepCustomersTab({ customers = [], onRefresh }) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Email Body Content <span className="text-rose-500">*</span>
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Email Body Content <span className="text-rose-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleAttachMagicLink('email')}
+                    className="text-[11px] font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-lg border border-indigo-200 transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>+ Attach Magic Login Link</span>
+                  </button>
+                </div>
                 <textarea
                   rows={5}
                   required

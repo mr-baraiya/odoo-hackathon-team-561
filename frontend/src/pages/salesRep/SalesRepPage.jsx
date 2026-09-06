@@ -85,7 +85,6 @@ export default function SalesRepPage() {
 
   const tabs = [
     { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'quotation_requests', label: 'Quotation Requests', icon: Inbox, badge: summary?.quotation_requests_count || 0, badgeColor: 'bg-amber-100 text-amber-800' },
     { id: 'quotations', label: 'Quotations Directory', icon: FileText, badge: openNegCount, badgeColor: 'bg-indigo-100 text-indigo-800' },
     { id: 'approvals', label: 'Discount Approvals', icon: ShieldCheck, badge: summary?.pending_approvals_count || 0, badgeColor: 'bg-purple-100 text-purple-800' },
     { id: 'communication', label: 'Negotiations & Messaging', icon: MessageSquare },
@@ -130,13 +129,7 @@ export default function SalesRepPage() {
                     onNavigateTab={handleNavigateTab}
                   />
                 )}
-                {activeTab === 'quotation_requests' && (
-                  <SalesRepQuotationRequestsTab
-                    onConvertSuccess={loadData}
-                    onNavigateTab={handleNavigateTab}
-                  />
-                )}
-                {activeTab === 'quotations' && (
+                {(activeTab === 'quotation_requests' || activeTab === 'quotations') && (
                   <SalesRepQuotationsTab
                     quotations={quotations}
                     customers={customers}

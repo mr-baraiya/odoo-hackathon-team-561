@@ -27,9 +27,13 @@ export default function MagicLinkVerifyPage() {
       try {
         const res = await authService.verifyMagicLink(magicToken);
         if (res?.token && res?.user) {
-          loginUser(res.user, res.token);
+          const customerUser = {
+            ...res.user,
+            role: res.user.role === 'admin' ? 'admin' : 'customer',
+          };
+          loginUser(customerUser, res.token);
           setStatus('success');
-          toast.success(`Logged in as ${res.user.full_name || res.user.email}!`);
+          toast.success(`Logged in as ${customerUser.full_name || customerUser.email}!`);
           setTimeout(() => {
             navigate('/customer/portal', { replace: true });
           }, 1200);

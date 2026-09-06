@@ -1,7 +1,6 @@
-# PGMS
+# DealFlow360 Backend Technical Manuals
 
-### [API documentation](./api/route.md)
-
-### [Constants](./constant.md)
-
-### [Validation Schema](./validationSchema.md)
+- [API Route Catalog](./api/route.md)
+- [System Constants & Enums](./constant.md)
+- [Joi Validation Schemas](./validationSchema.md)
+- [Sales Analytics & Deal Health API](./api/party-analysis.md)
