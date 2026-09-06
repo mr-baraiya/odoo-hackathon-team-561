@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../services/apiClient";
 
-const API_BASE = "/api/dealflow";
+const LEGACY_API_BASE = "/dealflow";
 
 const DealFlowContext = createContext(null);
 
@@ -27,16 +27,6 @@ export function DealFlowProvider({ children }) {
   });
   const [loading, setLoading] = useState(false);
 
-  const http = axios.create({ baseURL: API_BASE });
-  http.interceptors.request.use((config) => {
-    const token = localStorage.getItem("token");
-    if (token)
-      config.headers.Authorization = token.startsWith("Bearer ")
-        ? token
-        : `Bearer ${token}`;
-    return config;
-  });
-
   // Fetch initial data
   const refreshAllData = async () => {
     setLoading(true);
@@ -51,25 +41,25 @@ export function DealFlowProvider({ children }) {
         quoteRes,
         healthRes,
       ] = await Promise.all([
-        http.get(`${API_BASE}/products`),
-        http.get(`${API_BASE}/categories`),
-        http.get(`${API_BASE}/customer-tiers`),
-        http.get(`${API_BASE}/customers`),
-        http.get(`${API_BASE}/warehouses`),
-        http.get(`${API_BASE}/subscription-plans`),
-        http.get(`${API_BASE}/quotations`),
-        http.get(`${API_BASE}/analytics/deal-health`),
+        apiClient.get("/products"),
+        apiClient.get("/categories"),
+        apiClient.get("/customer-tiers"),
+        apiClient.get("/customers"),
+        apiClient.get("/warehouses"),
+        apiClient.get("/subscription-plans"),
+        apiClient.get("/quotations"),
+        apiClient.get("/deal-health/alerts"),
       ]);
 
-      setProducts(prodRes.data || []);
-      setCategories(catRes.data || []);
-      setCustomerTiers(tierRes.data || []);
-      setCustomers(custRes.data || []);
-      setWarehouses(whRes.data.warehouses || []);
-      setStock(whRes.data.stock || []);
-      setSubscriptionPlans(planRes.data || []);
-      setQuotations(quoteRes.data || []);
-      setDealHealth(healthRes.data || { alerts: [], stalledDeals: [] });
+      setProducts(prodRes || []);
+      setCategories(catRes || []);
+      setCustomerTiers(tierRes || []);
+      setCustomers(custRes || []);
+      setWarehouses(whRes.warehouses || whRes || []);
+      setStock(whRes.stock || []);
+      setSubscriptionPlans(planRes || []);
+      setQuotations(quoteRes || []);
+      setDealHealth({ alerts: healthRes || [], stalledDeals: [] });
     } catch (err) {
       console.error("Failed to load DealFlow360 data", err);
     } finally {
@@ -127,7 +117,7 @@ export function DealFlowProvider({ children }) {
     lineItems,
     orderDiscountPct = 0,
   ) => {
-    const res = await http.post(`${API_BASE}/quotations/calculate-risk`, {
+    const res = await apiClient.post(`${LEGACY_API_BASE}/quotations/calculate-risk`, {
       customerTierCode,
       lineItems,
       orderDiscountPct,
@@ -136,13 +126,13 @@ export function DealFlowProvider({ children }) {
   };
 
   const createQuotation = async (payload) => {
-    const res = await http.post(`${API_BASE}/quotations`, payload);
+    const res = await apiClient.post("/quotations", payload);
     await refreshAllData();
     return res.data;
   };
 
   const approveQuotation = async (quoteId, action, reason) => {
-    const res = await axios.post(`${API_BASE}/quotations/${quoteId}/approve`, {
+    const res = await apiClient.post(`${LEGACY_API_BASE}/quotations/${quoteId}/approve`, {
       userId: currentUser.id,
       userRole: currentUser.role,
       action,
@@ -153,37 +143,37 @@ export function DealFlowProvider({ children }) {
   };
 
   const getFulfillmentSplit = async (quoteId, overrideSplits = null) => {
-    const res = await axios.post(
-      `${API_BASE}/quotations/${quoteId}/fulfillment-split`,
+    const res = await apiClient.post(
+      `${LEGACY_API_BASE}/quotations/${quoteId}/fulfillment-split`,
       { overrideSplits },
     );
     return res.data;
   };
 
   const fetchUpsellSuggestions = async (quoteId, cartLines = []) => {
-    const res = await axios.post(
-      `${API_BASE}/quotations/${quoteId}/upsell-suggestions`,
+    const res = await apiClient.post(
+      `${LEGACY_API_BASE}/quotations/${quoteId}/upsell-suggestions`,
       { cartLines },
     );
     return res.data;
   };
 
   const getBillingSchedule = async (quoteId) => {
-    const res = await axios.get(`${API_BASE}/quotations/${quoteId}/billing`);
+    const res = await apiClient.get(`${LEGACY_API_BASE}/quotations/${quoteId}/billing`);
     return res.data;
   };
 
   const prorateChange = async (quoteId, params) => {
-    const res = await axios.post(
-      `${API_BASE}/quotations/${quoteId}/prorate-change`,
+    const res = await apiClient.post(
+      `${LEGACY_API_BASE}/quotations/${quoteId}/prorate-change`,
       params,
     );
     return res.data;
   };
 
   const cancelSubscriptionLine = async (quoteId, params) => {
-    const res = await axios.post(
-      `${API_BASE}/quotations/${quoteId}/cancel-subscription`,
+    const res = await apiClient.post(
+      `${LEGACY_API_BASE}/quotations/${quoteId}/cancel-subscription`,
       params,
     );
     await refreshAllData();
@@ -191,18 +181,18 @@ export function DealFlowProvider({ children }) {
   };
 
   const getPortalQuote = async (tokenOrId) => {
-    const res = await axios.get(`${API_BASE}/portal/quote/${tokenOrId}`);
+    const res = await apiClient.get(`${LEGACY_API_BASE}/portal/quote/${tokenOrId}`);
     return res.data;
   };
 
   const submitNegotiation = async (payload) => {
-    const res = await axios.post(`${API_BASE}/portal/negotiate`, payload);
+    const res = await apiClient.post(`${LEGACY_API_BASE}/portal/negotiate`, payload);
     await refreshAllData();
     return res.data;
   };
 
   const confirmPortalQuotation = async (quotationId) => {
-    const res = await axios.post(`${API_BASE}/portal/confirm`, {
+    const res = await apiClient.post(`${LEGACY_API_BASE}/portal/confirm`, {
       quotationId,
       customerUserId: currentUser.id,
     });
@@ -211,7 +201,7 @@ export function DealFlowProvider({ children }) {
   };
 
   const sendNudge = async (alertId, quotationId, note) => {
-    const res = await axios.post(`${API_BASE}/analytics/nudge`, {
+    const res = await apiClient.post(`${LEGACY_API_BASE}/analytics/nudge`, {
       alertId,
       quotationId,
       note,
@@ -221,7 +211,7 @@ export function DealFlowProvider({ children }) {
   };
 
   const getReports = async (filters = {}) => {
-    const res = await axios.get(`${API_BASE}/reports`, { params: filters });
+    const res = await apiClient.get(`${LEGACY_API_BASE}/reports`, { params: filters });
     return res.data;
   };
 

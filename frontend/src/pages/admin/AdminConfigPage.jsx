@@ -155,7 +155,7 @@ export default function AdminConfigPage() {
   // Fetch catalog products from backend DB
   const fetchProducts = async () => {
     try {
-      const data = await apiClient.get('/catalog/products');
+      const data = await apiClient.get('/products');
       if (Array.isArray(data) && data.length > 0) {
         setProductList(data);
       }

@@ -53,6 +53,13 @@ router.put('/upsell-rules/:id', authenticateJWT, authorizeRoles('admin', 'sales_
   res.json(rule);
 });
 
+router.patch('/upsell-rules/:id/toggle', authenticateJWT, authorizeRoles('admin', 'sales_manager'), (req, res) => {
+  const rule = seed.UPSELL_RULES.find((r) => r.id === req.params.id);
+  if (!rule) return res.status(404).json({ message: 'Upsell rule not found' });
+  rule.is_active = req.body.is_active !== undefined ? Boolean(req.body.is_active) : !rule.is_active;
+  res.json({ message: `Upsell rule ${rule.is_active ? 'activated' : 'deactivated'}`, rule });
+});
+
 // DELETE /api/upsell-rules/:id
 router.delete('/upsell-rules/:id', authenticateJWT, authorizeRoles('admin'), (req, res) => {
   const idx = seed.UPSELL_RULES.findIndex((r) => r.id === req.params.id);

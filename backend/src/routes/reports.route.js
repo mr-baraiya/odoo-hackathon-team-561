@@ -106,4 +106,44 @@ router.get(
   },
 );
 
+router.get("/discounts", authenticateJWT, authorizeRoles("admin", "sales_manager", "finance_ops"), (req, res) => {
+  const quotes = seed.QUOTATIONS;
+  const discounts = quotes.map((quote) => Number(quote.order_level_discount_pct || 0));
+  res.json({
+    summary: {
+      avg_order_discount: discounts.length ? discounts.reduce((sum, value) => sum + value, 0) / discounts.length : 0,
+      max_order_discount: Math.max(0, ...discounts),
+      total_discount_value: quotes.reduce((sum, quote) => sum + Number(quote.total_discount_amount || 0), 0),
+      high_discount_count: discounts.filter((value) => value > 20).length,
+    },
+    byRep: [],
+    byProduct: [],
+    highDiscountDeals: quotes.filter((quote) => Number(quote.order_level_discount_pct || 0) > 15).map((quote) => ({
+      quote_number: quote.quote_number,
+      company_name: quote.customer_name,
+      rep_name: quote.sales_rep_name,
+      order_level_discount_pct: quote.order_level_discount_pct,
+      total_discount_amount: quote.total_discount_amount,
+      total_amount: quote.total_amount,
+      status: quote.status,
+    })),
+  });
+});
+
+router.get("/fulfillment", authenticateJWT, authorizeRoles("admin", "sales_manager", "finance_ops"), (req, res) => {
+  const orders = seed.QUOTATIONS.filter((quote) => ["confirmed", "in_fulfillment", "fulfilled"].includes(quote.status)).map((quote) => ({
+    quote_number: quote.quote_number,
+    customer_name: quote.customer_name,
+    status: quote.status,
+    promised_delivery_date: null,
+    actual_delivery_date: quote.status === "fulfilled" ? quote.last_activity_at : null,
+    is_late: false,
+  }));
+  const byStatus = Object.entries(orders.reduce((groups, order) => {
+    groups[order.status] = (groups[order.status] || 0) + 1;
+    return groups;
+  }, {})).map(([status, count]) => ({ status, count }));
+  res.json({ summary: { total_orders: orders.length, delivered: orders.filter((order) => order.status === "fulfilled").length, in_transit: orders.filter((order) => order.status === "in_fulfillment").length, late_deliveries: 0 }, orders, byStatus });
+});
+
 module.exports = router;

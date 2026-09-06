@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useParams } from 'react-router-dom';
 import { useDealFlow } from '../../context/DealFlowContext';
 
@@ -28,7 +29,7 @@ export default function CustomerPortalPage() {
 
   const handleSubmitNegotiation = async () => {
     if (!message.trim()) {
-      alert('Please enter a message or note for the sales team.');
+      toast.error('Enter a message or note for the sales team.');
       return;
     }
     setActing(true);
@@ -41,9 +42,11 @@ export default function CustomerPortalPage() {
         proposedDiscountPct: requestType === 'counter_discount' ? proposedDiscount : null,
       });
       setMessage('');
+      toast.success('Negotiation request submitted.');
       await loadQuoteData();
     } catch (err) {
       console.error(err);
+      toast.error(err.message || 'Negotiation request failed.');
     } finally {
       setActing(false);
     }
@@ -53,10 +56,11 @@ export default function CustomerPortalPage() {
     setActing(true);
     try {
       const res = await confirmPortalQuotation(data.quote.id);
-      alert(res.message);
+      toast.success(res.message || 'Quotation confirmed.');
       await loadQuoteData();
     } catch (err) {
       console.error(err);
+      toast.error(err.message || 'Quotation confirmation failed.');
     } finally {
       setActing(false);
     }
