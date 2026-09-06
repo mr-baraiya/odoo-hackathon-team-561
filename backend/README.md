@@ -78,28 +78,28 @@ SERVICE_NAME = dealflow360
 SERVER_PORT = 5000
 
 # Authentication
-JWT_SECRET = dealflow360_super_secret_jwt_key_2026
+JWT_SECRET = your_jwt_secret_key_here
 
 # PostgreSQL Database Configuration
 DB_HOST = localhost
 DB_PORT = 5432
 DB_NAME = dealflow360
 DB_USER = postgres
-DB_PASSWORD = postgres
-DATABASE_URL = "postgres://postgres:postgres@localhost:5432/dealflow360?sslmode=disable"
+DB_PASSWORD = your_postgres_password_here
+DATABASE_URL = "postgres://postgres:your_postgres_password_here@localhost:5432/dealflow360?sslmode=disable"
 
 # Logger Configuration
 CONSOLE_LOG_LEVEL = info
 FILE_LOG_LEVEL = false
 
 # Twilio / WhatsApp Configuration
-TWILIO_ACCOUNT_SID = your_twilio_account_sid
-TWILIO_AUTH_TOKEN = your_twilio_auth_token
+TWILIO_ACCOUNT_SID = your_twilio_account_sid_here
+TWILIO_AUTH_TOKEN = your_twilio_auth_token_here
 TWILIO_WHATSAPP_NUMBER = whatsapp:+14155238886
 
 # Razorpay Configuration
-RAZORPAY_KEY_ID = rzp_test_ZFxDYdxbnGTEtC
-RAZORPAY_KEY_SECRET = Gkmmmqm0L3trSvm4KwLMGoen
+RAZORPAY_KEY_ID = your_razorpay_key_id_here
+RAZORPAY_KEY_SECRET = your_razorpay_key_secret_here
 ```
 
 ---

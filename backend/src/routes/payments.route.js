@@ -10,8 +10,8 @@ const router = express.Router();
 // Initialize Razorpay Client
 let razorpayInstance = null;
 try {
-  const keyId = vars.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ZFxDYdxbnGTEtC';
-  const keySecret = vars.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'Gkmmmqm0L3trSvm4KwLMGoen';
+  const keyId = vars.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_key_id_mock_123';
+  const keySecret = vars.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret_key_mock_123';
   if (keyId && keySecret) {
     razorpayInstance = new Razorpay({
       key_id: keyId,
@@ -147,7 +147,7 @@ router.post('/create-order', authenticateJWT, authorizeRoles('customer', 'sales_
       amount: payableAmount,
       currency,
       invoice_id,
-      key_id: vars.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_ZFxDYdxbnGTEtC',
+      key_id: vars.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_key_id_mock_123',
       razorpay_order: razorpayOrder,
       payment_record: newPaymentRecord,
     });
@@ -169,7 +169,7 @@ router.post('/verify', authenticateJWT, authorizeRoles('customer', 'sales_rep', 
       return res.status(400).json({ success: false, message: 'razorpay_order_id and razorpay_payment_id are required' });
     }
 
-    const keySecret = vars.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'Gkmmmqm0L3trSvm4KwLMGoen';
+    const keySecret = vars.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret_key_mock_123';
     let isSignatureValid = false;
 
     if (razorpay_signature) {
@@ -284,7 +284,7 @@ router.post('/verify', authenticateJWT, authorizeRoles('customer', 'sales_rep', 
 router.post('/webhook', (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const secret = vars.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'Gkmmmqm0L3trSvm4KwLMGoen';
+    const secret = vars.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret_key_mock_123';
 
     if (signature && secret) {
       const expectedSignature = crypto

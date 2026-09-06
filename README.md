@@ -70,45 +70,56 @@ DealFlow360/
 - Dbmate CLI (`scoop install dbmate` or `brew install dbmate`)
 
 ### 1. Environment Configuration
-Navigate to the `backend/` directory and configure environment variables:
 
+For complete environment setup details across both applications, see the [Both Apps Environment Setup Guide](file:///d:/VS_CODES/Projects/odoo-hackathon-team-561/docs/env_setup_guide.md).
+
+#### Backend Environment Setup (`backend/.env`)
+Copy `backend/.env.example` to `backend/.env`:
 ```bash
 cd backend
 cp .env.example .env
 ```
-
-Ensure `.env` contains your database connection string and API keys:
-
+Ensure `.env` contains:
 ```env
-SERVER_PORT = 5000
-JWT_SECRET = dealflow360_super_secret_jwt_key_2026
-DATABASE_URL = "postgres://postgres:postgres@localhost:5432/dealflow360?sslmode=disable"
+SERVER_PORT=5000
+JWT_SECRET=your_jwt_secret_key_here
+DATABASE_URL="postgres://postgres:your_postgres_password_here@localhost:5432/dealflow360?sslmode=disable"
 
 # Razorpay Configuration
-RAZORPAY_KEY_ID = rzp_test_ZFxDYdxbnGTEtC
-RAZORPAY_KEY_SECRET = Gkmmmqm0L3trSvm4KwLMGoen
+RAZORPAY_KEY_ID=your_razorpay_key_id_here
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret_here
 ```
 
-### 2. Install Dependencies & Run Migrations
-From inside the `backend/` directory:
-
+#### Frontend Environment Setup (`frontend/.env`)
+Copy `frontend/.env.example` to `frontend/.env`:
 ```bash
+cd frontend
+cp .env.example .env
+```
+Ensure `.env` contains:
+```env
+VITE_SERVER_URL="http://localhost:5000/api"
+VITE_WHATSAPP_SERVER_URL="http://localhost:5000/api"
+VITE_RAZORPAY_KEY_ID="your_razorpay_key_id_here"
+```
+
+### 2. Install Dependencies & Run Applications
+
+#### Backend:
+```bash
+cd backend
 npm install
-npm run dbmate
-```
-
-### 3. Start the Server
-- Development Mode (Hot Reload):
-```bash
 npm run dev
 ```
-
-- Production Mode:
-```bash
-npm start
-```
-
 The API server will run at `http://localhost:5000/api`.
+
+#### Frontend:
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npm run dev
+```
+The Frontend web app will run at `http://localhost:5173`.
 
 ---
 
@@ -146,6 +157,7 @@ node ../scripts/verify_payment_gateway.js
 
 ## Platform Documentation Links
 
+- [Both Apps Environment Setup Guide (docs/env_setup_guide.md)](./docs/env_setup_guide.md)
 - [System Architecture & Data Model (docs/architecture.md)](./docs/architecture.md)
 - [Frontend Developer API Integration Guide (docs/frontend_api_guide.md)](./docs/frontend_api_guide.md)
 - [Backend Service Manual (backend/README.md)](./backend/README.md)

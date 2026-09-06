@@ -121,7 +121,7 @@ export default function CustomerInvoicesTab({
           }
         }
 
-        const razorpayKey = orderData?.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_ZFxDYdxbnGTEtC';
+        const razorpayKey = orderData?.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_key_id_mock_123';
         const razorpayOrderId = orderData?.order_id || `order_${Math.random().toString(36).substring(2, 12)}`;
 
         const isLoaded = await loadRazorpayScript();

@@ -576,7 +576,7 @@ export default apiRequest;
   "amount": 6390.0,
   "currency": "INR",
   "invoice_id": "inv_1101",
-  "key_id": "rzp_test_ZFxDYdxbnGTEtC",
+  "key_id": "your_razorpay_key_id_here",
   "razorpay_order": {
     "id": "order_TYHNGvqLdMAi8I",
     "amount": 639000,
