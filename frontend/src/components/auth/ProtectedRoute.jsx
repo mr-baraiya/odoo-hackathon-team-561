@@ -2,11 +2,11 @@ import { Navigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export const ROLE_DASHBOARDS = {
-  sales_rep: { path: "/sales_rep/home", label: "Sales Rep Home" },
+  sales_rep: { path: "/sales-rep/overview", label: "Sales Rep Home" },
   sales_manager: { path: "/sales_manager/home", label: "Sales Manager Home" },
   finance_ops: { path: "/finance_ops/home", label: "Finance Ops Home" },
-  admin: { path: "/admin/home", label: "Admin Home" },
-  customer: { path: "/customer/home", label: "Customer Home" },
+  admin: { path: "/admin/home", label: "Admin System Control" },
+  customer: { path: "/customer/portal", label: "Customer Portal" },
 };
 
 export const ROLE_NAMES = {
@@ -20,6 +20,8 @@ export const ROLE_NAMES = {
 export default function ProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, user, isLoading } = useAuth();
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const hasMagicToken = searchParams.has('magicToken') || searchParams.has('token');
 
   if (isLoading) {
     return (
@@ -30,7 +32,8 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     );
   }
 
-  if (!isAuthenticated) {
+  // If user is not authenticated, but clicked a valid magic link with a token, pass through to allow auto-login verification
+  if (!isAuthenticated && !hasMagicToken) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

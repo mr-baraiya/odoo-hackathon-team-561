@@ -1,17 +1,50 @@
 const express = require('express');
 const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
+const { getConnection } = require('../service/database');
 
 const router = express.Router();
 
-// GET /api/customer-tiers
-router.get('/', authenticateJWT, (req, res) => {
-  res.json(seed.CUSTOMER_TIERS);
+// GET /api/customer-tiers - Query PostgreSQL DB
+router.get('/', authenticateJWT, async (req, res) => {
+  console.log('[API GET /customer-tiers] Querying PostgreSQL database...');
+  try {
+    const db = await getConnection();
+    try {
+      const rows = await db.queryAll(`SELECT * FROM customer_tiers ORDER BY default_discount_ceiling_pct ASC`);
+      if (rows && rows.length > 0) {
+        console.log(`[API GET /customer-tiers] Loaded ${rows.length} tiers from PostgreSQL database.`);
+        return res.json(rows);
+      }
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /customer-tiers] DB query failed, using seed fallback:', err.message);
+  }
+  return res.json(seed.CUSTOMER_TIERS);
 });
 
 // GET /api/customer-tiers/:id
-router.get('/:id', authenticateJWT, (req, res) => {
-  const tier = seed.CUSTOMER_TIERS.find((t) => t.id === req.params.id || t.code === req.params.id);
+router.get('/:id', authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  console.log(`[API GET /customer-tiers/${id}] Fetching tier details...`);
+  try {
+    const db = await getConnection();
+    try {
+      const tier = await db.queryOne(`SELECT * FROM customer_tiers WHERE id::text = $1 OR code::text = $2`, [id, id.toLowerCase()]);
+      if (tier) {
+        console.log(`[API GET /customer-tiers/${id}] Found tier in PostgreSQL DB:`, tier.label || tier.code);
+        return res.json(tier);
+      }
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn(`[API GET /customer-tiers/${id}] DB query failed:`, err.message);
+  }
+
+  const tier = seed.CUSTOMER_TIERS.find((t) => t.id === id || t.code === id);
   if (!tier) return res.status(404).json({ message: 'Customer tier not found' });
   res.json(tier);
 });

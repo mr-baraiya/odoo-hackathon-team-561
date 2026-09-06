@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Download, Eye, Edit, Trash2, X, Tag, Percent, Layers, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Plus, Download, Eye, Edit, Trash2, X, Tag, Percent, Layers, ShieldAlert, CheckCircle2,
+  AlertCircle, Package, Sparkles, Boxes, TrendingUp, Info, Sliders, DollarSign, Warehouse,
+  Zap, Check, ShoppingBag, BarChart3, AlertTriangle
+} from 'lucide-react';
 import productService from '../../../services/product.service';
+import apiClient from '../../../services/apiClient';
 
 export default function ProductsTab({
   productList = [],
@@ -17,15 +22,21 @@ export default function ProductsTab({
 
   const [categoriesList, setCategoriesList] = useState(initialCategories || []);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatType, setNewCatType] = useState('hardware');
   const [newCatCeiling, setNewCatCeiling] = useState(15);
+  const [newCatParentId, setNewCatParentId] = useState('');
 
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingProduct, setViewingProduct] = useState(null);
+  const [viewModalTab, setViewModalTab] = useState('overview');
+  const [viewModalUpsells, setViewModalUpsells] = useState([]);
+  const [viewModalStock, setViewModalStock] = useState([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   const [productForm, setProductForm] = useState({
     sku: '',
@@ -84,10 +95,18 @@ export default function ProductsTab({
     return matchesCategory && matchesStatus && matchesSearch;
   });
 
-  const handleOpenProductModal = (productToEdit = null) => {
+  const handleOpenProductModal = async (productToEdit = null) => {
     setFormErrors({});
     if (productToEdit) {
       setEditingProduct(productToEdit);
+      let vars = Array.isArray(productToEdit.variants) ? productToEdit.variants : [];
+      try {
+        const fullProd = await productService.getProductById(productToEdit.id);
+        if (fullProd && Array.isArray(fullProd.variants)) {
+          vars = fullProd.variants;
+        }
+      } catch (e) {}
+
       setProductForm({
         sku: productToEdit.sku || '',
         name: productToEdit.name || '',
@@ -100,7 +119,7 @@ export default function ProductsTab({
         status: productToEdit.status || (productToEdit.is_active ? 'active' : 'draft'),
         is_promoted: Boolean(productToEdit.is_promoted),
         promo_discount_pct: productToEdit.promo_discount_pct || 10,
-        variants: Array.isArray(productToEdit.variants) ? productToEdit.variants : [],
+        variants: vars,
       });
     } else {
       setEditingProduct(null);
@@ -110,7 +129,7 @@ export default function ProductsTab({
         description: '',
         category_id: categoriesList[0] ? categoriesList[0].id : '',
         unit: 'unit',
-        base_price: '',
+ base_price: '',
         cost_price: '',
         tax_rate_pct: 18,
         status: 'active',
@@ -122,9 +141,47 @@ export default function ProductsTab({
     setShowProductModal(true);
   };
 
-  const handleViewProduct = (prod) => {
+  const handleViewProduct = async (prod) => {
     setViewingProduct(prod);
+    setViewModalTab('overview');
     setShowViewModal(true);
+    setLoadingDetails(true);
+
+    try {
+      const [upsellRes, stockRes, prodRes] = await Promise.allSettled([
+        apiClient.get('/upsell-rules'),
+        apiClient.get('/inventory'),
+        productService.getProductById(prod.id),
+      ]);
+
+      if (prodRes.status === 'fulfilled' && prodRes.value) {
+        setViewingProduct(prodRes.value);
+      }
+
+      let upsells = [];
+      if (upsellRes.status === 'fulfilled' && Array.isArray(upsellRes.value)) {
+        upsells = upsellRes.value.filter(
+          (u) =>
+            String(u.base_product_id) === String(prod.id) ||
+            (u.base_product_sku && u.base_product_sku === prod.sku)
+        );
+      }
+      setViewModalUpsells(upsells);
+
+      let stockList = [];
+      if (stockRes.status === 'fulfilled' && Array.isArray(stockRes.value)) {
+        stockList = stockRes.value.filter(
+          (s) =>
+            String(s.product_id) === String(prod.id) ||
+            (s.product_sku && s.product_sku === prod.sku)
+        );
+      }
+      setViewModalStock(stockList);
+    } catch (err) {
+      console.warn('[ProductsTab handleViewProduct] Error loading extra details:', err);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const handleAddVariant = () => {
@@ -213,26 +270,72 @@ export default function ProductsTab({
     }
   };
 
-  const handleCreateCategory = async (e) => {
+  const resetCategoryForm = () => {
+    setEditingCategory(null);
+    setNewCatName('');
+    setNewCatCeiling(15);
+    setNewCatParentId('');
+  };
+
+  const handleEditCategoryClick = (cat) => {
+    setEditingCategory(cat);
+    setNewCatName(cat.name || '');
+    setNewCatCeiling(cat.discount_ceiling_pct !== undefined ? cat.discount_ceiling_pct : 15);
+    setNewCatParentId(cat.parent_id || '');
+  };
+
+  const handleDeleteCategory = async (catId, catName) => {
+    if (!window.confirm(`Are you sure you want to delete sub-category "${catName}"?`)) return;
+
+    try {
+      await productService.deleteCategory(catId);
+      toast.success(`Sub-category "${catName}" deleted successfully!`);
+      await fetchCategories();
+      if (editingCategory && editingCategory.id === catId) {
+        resetCategoryForm();
+      }
+    } catch (err) {
+      console.error('[ProductsTab handleDeleteCategory] Error:', err);
+      toast.error(err.message || 'Failed to delete sub-category.');
+    }
+  };
+
+  const handleSaveCategory = async (e) => {
     e.preventDefault();
     if (!newCatName.trim()) {
-      toast.error('Category Name is required.');
+      toast.error('Sub-Category Name is required.');
+      return;
+    }
+
+    let targetParent = categoriesList.find((c) => c.id === newCatParentId) || categoriesList.find((c) => !c.parent_id);
+    if (!targetParent) {
+      toast.error('Please select a Main Parent Category (Hardware, Services, or Subscriptions).');
       return;
     }
 
     try {
-      const created = await productService.createCategory({
-        name: newCatName.trim(),
-        category_type: newCatType,
-        discount_ceiling_pct: Number(newCatCeiling || 15),
-      });
-      toast.success(`Category "${newCatName}" created in database!`);
+      if (editingCategory) {
+        await productService.updateCategory(editingCategory.id, {
+          name: newCatName.trim(),
+          category_type: targetParent.category_type || 'hardware',
+          discount_ceiling_pct: Number(newCatCeiling || targetParent.discount_ceiling_pct || 15),
+          parent_id: targetParent.id,
+        });
+        toast.success(`Sub-category "${newCatName.trim()}" updated successfully!`);
+      } else {
+        await productService.createCategory({
+          name: newCatName.trim(),
+          category_type: targetParent.category_type || 'hardware',
+          discount_ceiling_pct: Number(newCatCeiling || targetParent.discount_ceiling_pct || 15),
+          parent_id: targetParent.id,
+        });
+        toast.success(`Sub-category "${newCatName.trim()}" added under ${targetParent.name}!`);
+      }
       await fetchCategories();
-      setNewCatName('');
-      setNewCatCeiling(15);
+      resetCategoryForm();
     } catch (err) {
-      console.error('[ProductsTab handleCreateCategory] Error:', err);
-      toast.error(err.message || 'Failed to create category.');
+      console.error('[ProductsTab handleSaveCategory] Error:', err);
+      toast.error(err.message || 'Failed to save sub-category.');
     }
   };
 
@@ -319,12 +422,20 @@ export default function ProductsTab({
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 cursor-pointer"
           >
-            <option value="all">All Categories</option>
-            {categoriesList.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name} ({cat.discount_ceiling_pct || 15}% Ceiling)
-              </option>
-            ))}
+            <option value="all">All Categories & Sub-Categories</option>
+            {categoriesList.filter(c => !c.parent_id).map((mainCat) => {
+              const subCats = categoriesList.filter(sc => sc.parent_id === mainCat.id);
+              return (
+                <optgroup key={mainCat.id} label={`${mainCat.name} (${mainCat.category_type.toUpperCase()})`}>
+                  <option value={mainCat.id}>{mainCat.name} (All {mainCat.name})</option>
+                  {subCats.map((sc) => (
+                    <option key={sc.id} value={sc.id}>
+                      &nbsp;&nbsp;↳ {sc.name} ({sc.discount_ceiling_pct}% Ceiling)
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
         </div>
 
@@ -505,17 +616,25 @@ export default function ProductsTab({
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Product Category</label>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Product Category / Sub-Category</label>
                   <select
                     value={productForm.category_id}
                     onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 cursor-pointer"
                   >
-                    {categoriesList.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {categoriesList.filter(c => !c.parent_id).map((mainCat) => {
+                      const subCats = categoriesList.filter(sc => sc.parent_id === mainCat.id);
+                      return (
+                        <optgroup key={mainCat.id} label={`${mainCat.name} (${mainCat.category_type.toUpperCase()})`}>
+                          <option value={mainCat.id}>{mainCat.name} (General)</option>
+                          {subCats.map((sc) => (
+                            <option key={sc.id} value={sc.id}>
+                              &nbsp;&nbsp;↳ {sc.name} ({sc.discount_ceiling_pct}% Ceiling)
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -696,76 +815,426 @@ export default function ProductsTab({
 
       {/* --- VIEW PRODUCT DETAILS MODAL --- */}
       {showViewModal && viewingProduct && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">{viewingProduct.name}</h3>
-                <p className="text-xs text-slate-500 font-mono">SKU: {viewingProduct.sku}</p>
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+            {/* Modal Top Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className="font-mono font-bold text-xs bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-md border border-indigo-200">
+                    {viewingProduct.sku}
+                  </span>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${
+                      (viewingProduct.status || (viewingProduct.is_active ? 'active' : 'draft')) === 'active'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : (viewingProduct.status || (viewingProduct.is_active ? 'active' : 'draft')) === 'draft'
+                        ? 'bg-amber-100 text-amber-800 border-amber-200'
+                        : 'bg-rose-100 text-rose-800 border-rose-200'
+                    }`}
+                  >
+                    {viewingProduct.status || (viewingProduct.is_active ? 'active' : 'draft')}
+                  </span>
+                  {viewingProduct.is_promoted && (
+                    <span className="bg-purple-100 text-purple-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-purple-200 flex items-center space-x-1">
+                      <Tag className="w-3 h-3" />
+                      <span>{viewingProduct.promo_discount_pct || 10}% PROMO</span>
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 leading-snug">{viewingProduct.name}</h3>
+                <p className="text-xs text-slate-500 flex items-center space-x-2">
+                  <span>Category: <strong className="text-slate-800 uppercase">{viewingProduct.category_name || 'Hardware'}</strong></span>
+                  <span>•</span>
+                  <span>Unit: <strong className="text-slate-800">{viewingProduct.unit || 'unit'}</strong></span>
+                </p>
               </div>
               <button
                 onClick={() => setShowViewModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 cursor-pointer rounded-lg hover:bg-slate-100 transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Base Price</span>
-                  <span className="font-mono font-bold text-slate-900 text-sm">${Number(viewingProduct.base_price || 0).toLocaleString()}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Cost Price</span>
-                  <span className="font-mono font-semibold text-slate-700 text-sm">${Number(viewingProduct.cost_price || 0).toLocaleString()}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Gross Margin</span>
-                  <span className="font-mono font-bold text-emerald-700 text-sm">{calculateMargin(viewingProduct.base_price, viewingProduct.cost_price)}%</span>
-                </div>
-              </div>
+            {/* Navigation Tabs Bar */}
+            <div className="flex items-center space-x-1 border-b border-slate-200 text-xs font-semibold overflow-x-auto pb-0 no-scrollbar scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                onClick={() => setViewModalTab('overview')}
+                className={`px-3 py-2 border-b-2 font-bold transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+                  viewModalTab === 'overview'
+                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-lg'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Info className="w-3.5 h-3.5" />
+                <span>Overview & Pricing</span>
+              </button>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Category</span>
-                  <span className="font-semibold text-indigo-700 uppercase">{viewingProduct.category_name || 'Hardware'}</span>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Status</span>
-                  <span className="font-bold text-slate-800 uppercase">{viewingProduct.status || (viewingProduct.is_active ? 'active' : 'draft')}</span>
-                </div>
-              </div>
+              <button
+                onClick={() => setViewModalTab('variants')}
+                className={`px-3 py-2 border-b-2 font-bold transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+                  viewModalTab === 'variants'
+                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-lg'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Variants & Add-ons</span>
+                <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.2 rounded-full font-extrabold">
+                  {viewingProduct.variants?.length || 0}
+                </span>
+              </button>
 
-              {viewingProduct.description && (
-                <div className="space-y-1 border-t border-slate-100 pt-2">
-                  <span className="text-[10px] font-bold uppercase text-slate-500 block">Description</span>
-                  <p className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-slate-800 leading-relaxed">
-                    {viewingProduct.description}
-                  </p>
-                </div>
-              )}
+              <button
+                onClick={() => setViewModalTab('addons')}
+                className={`px-3 py-2 border-b-2 font-bold transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+                  viewModalTab === 'addons'
+                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-lg'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Upsell & Pairing Rules</span>
+                <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.2 rounded-full font-extrabold">
+                  {viewModalUpsells.length}
+                </span>
+              </button>
 
-              {viewingProduct.variants && viewingProduct.variants.length > 0 && (
-                <div className="space-y-1.5 border-t border-slate-100 pt-2">
-                  <span className="text-[10px] font-bold uppercase text-slate-500 block">Configured Variants</span>
-                  <div className="space-y-1">
-                    {viewingProduct.variants.map((v) => (
-                      <div key={v.id} className="flex justify-between bg-slate-50 p-2 rounded-lg border border-slate-200">
-                        <span className="font-semibold text-slate-800">{v.attribute_name}: {v.value}</span>
-                        {v.extra_price > 0 && <span className="font-mono text-emerald-700 font-bold">+${v.extra_price}</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <button
+                onClick={() => setViewModalTab('stock')}
+                className={`px-3 py-2 border-b-2 font-bold transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+                  viewModalTab === 'stock'
+                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-lg'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Warehouse className="w-3.5 h-3.5" />
+                <span>Warehouse Stock</span>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.2 rounded-full font-extrabold">
+                  {viewModalStock.reduce((acc, curr) => acc + Number(curr.quantity_on_hand || 0), 0)}
+                </span>
+              </button>
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-100">
+            {/* TAB CONTENT PANELS */}
+            {loadingDetails ? (
+              <div className="p-8 text-center text-slate-500 space-y-2">
+                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-xs">Loading complete product specification details...</p>
+              </div>
+            ) : (
+              <div>
+                {/* TAB 1: OVERVIEW & PRICING */}
+                {viewModalTab === 'overview' && (
+                  <div className="space-y-4 text-xs">
+                    {/* Financial Summary Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">Base List Price</span>
+                        <span className="font-mono font-bold text-slate-900 text-base">
+                          ${Number(viewingProduct.base_price || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">Cost Price</span>
+                        <span className="font-mono font-semibold text-slate-700 text-base">
+                          ${Number(viewingProduct.cost_price || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">Gross Profit</span>
+                        <span className="font-mono font-bold text-indigo-700 text-base">
+                          ${(Number(viewingProduct.base_price || 0) - Number(viewingProduct.cost_price || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">Gross Margin</span>
+                        <span className="font-mono font-extrabold text-emerald-700 text-base">
+                          {calculateMargin(viewingProduct.base_price, viewingProduct.cost_price)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Secondary Specs Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Tax Rate</span>
+                        <span className="font-mono font-bold text-slate-900">{viewingProduct.tax_rate_pct || 18}% GST / VAT</span>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Category Ceiling Rule</span>
+                        <span className="font-semibold text-indigo-700">
+                          Max {categoriesList.find((c) => c.id === viewingProduct.category_id)?.discount_ceiling_pct || 15}% Discount
+                        </span>
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">Promotional Status</span>
+                        {viewingProduct.is_promoted ? (
+                          <span className="font-bold text-purple-700">
+                            {viewingProduct.promo_discount_pct || 10}% OFF Promo Active
+                          </span>
+                        ) : (
+                          <span className="font-medium text-slate-500">Standard List Pricing</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Promo Price Highlights */}
+                    {viewingProduct.is_promoted && (
+                      <div className="bg-purple-50 p-3.5 rounded-xl border border-purple-200 flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Tag className="w-4 h-4 text-purple-700 shrink-0" />
+                          <div>
+                            <p className="font-bold text-purple-900">Active Promotional Discount</p>
+                            <p className="text-[11px] text-purple-700">
+                              Applies a {viewingProduct.promo_discount_pct || 10}% discount to base pricing automatically during quotation line entry.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-purple-600 block uppercase font-bold">Net Promo Price</span>
+                          <span className="font-mono font-extrabold text-purple-900 text-sm">
+                            ${(Number(viewingProduct.base_price || 0) * (1 - (viewingProduct.promo_discount_pct || 10) / 100)).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Description & Scope */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block tracking-wider">
+                        Product Specification & Feature Scope
+                      </span>
+                      <p className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-slate-800 leading-relaxed min-h-[60px]">
+                        {viewingProduct.description || 'No detailed description specified for this product.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: VARIANTS & ATTRIBUTES */}
+                {viewModalTab === 'variants' && (
+                  <div className="space-y-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                        Configured Product Variants & Options
+                      </h4>
+                      <button
+                        onClick={() => {
+                          setShowViewModal(false);
+                          handleOpenProductModal(viewingProduct);
+                        }}
+                        className="text-indigo-600 hover:text-indigo-800 font-bold text-xs flex items-center space-x-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Manage Variants</span>
+                      </button>
+                    </div>
+
+                    {viewingProduct.variants && viewingProduct.variants.length > 0 ? (
+                      <div className="border border-slate-200 rounded-xl overflow-hidden">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] font-bold">
+                            <tr>
+                              <th className="p-2.5">Attribute</th>
+                              <th className="p-2.5">Option Value</th>
+                              <th className="p-2.5">Extra Charge ($)</th>
+                              <th className="p-2.5 text-right">Combined Variant List Price</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 text-slate-800">
+                            {viewingProduct.variants.map((v) => {
+                              const extra = Number(v.extra_price || 0);
+                              const totalVarPrice = Number(viewingProduct.base_price || 0) + extra;
+                              return (
+                                <tr key={v.id || v.attribute_name} className="hover:bg-slate-50 transition-colors">
+                                  <td className="p-2.5 font-bold text-indigo-700">{v.attribute_name}</td>
+                                  <td className="p-2.5 font-medium">{v.value}</td>
+                                  <td className="p-2.5 font-mono">
+                                    {extra > 0 ? (
+                                      <span className="text-emerald-700 font-bold">+${extra.toLocaleString()}</span>
+                                    ) : (
+                                      <span className="text-slate-400">+$0 (Included)</span>
+                                    )}
+                                  </td>
+                                  <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                                    ${totalVarPrice.toLocaleString()}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center space-y-2">
+                        <Sliders className="w-8 h-8 text-slate-400 mx-auto" />
+                        <p className="font-bold text-slate-800">No Custom Variants Configured</p>
+                        <p className="text-slate-500 max-w-sm mx-auto">
+                          This product is currently offered as a standard single SKU without extra memory, storage, or license term add-ons.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setShowViewModal(false);
+                            handleOpenProductModal(viewingProduct);
+                          }}
+                          className="mt-2 inline-flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-xl cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Variant Attributes</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 3: UPSELL & PAIRING RULES */}
+                {viewModalTab === 'addons' && (
+                  <div className="space-y-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                        Automated Upsell Rules & Suggested Add-ons
+                      </h4>
+                      <span className="text-[11px] text-slate-500">Engine-powered recommendation pairing</span>
+                    </div>
+
+                    {viewModalUpsells.length > 0 ? (
+                      <div className="space-y-2">
+                        {viewModalUpsells.map((rule) => {
+                          const scorePct = Math.round(Number(rule.co_purchase_score || 0.8) * 100);
+                          return (
+                            <div
+                              key={rule.id}
+                              className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-mono text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-md">
+                                    {rule.suggested_product_sku || 'ADD-ON'}
+                                  </span>
+                                  <span className="font-bold text-slate-900 text-xs">{rule.suggested_product_name}</span>
+                                </div>
+                                <div className="flex items-center space-x-3 text-[11px] text-slate-600">
+                                  <span>Affinity Score: <strong className="text-purple-700">{scorePct}%</strong></span>
+                                  <span>•</span>
+                                  <span>Required Min Margin: <strong className="text-emerald-700">{rule.min_margin_pct_required || 15}%</strong></span>
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <span className="text-[10px] font-bold text-slate-500 block uppercase">Add-on Price</span>
+                                <span className="font-mono font-bold text-slate-900 text-xs">
+                                  ${Number(rule.suggested_price || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center space-y-2">
+                        <Sparkles className="w-8 h-8 text-purple-400 mx-auto" />
+                        <p className="font-bold text-slate-800">No Specific Upsell Rules Linked</p>
+                        <p className="text-slate-500 max-w-md mx-auto">
+                          Standard complementary add-ons like Onsite Deployment & Extended Support are automatically available during quote creation based on category affinity.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 4: WAREHOUSE STOCK */}
+                {viewModalTab === 'stock' && (
+                  <div className="space-y-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                        Warehouse Stock Allocation & Inventory
+                      </h4>
+                      <span className="font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-md text-[11px]">
+                        Total On Hand: {viewModalStock.reduce((acc, curr) => acc + Number(curr.quantity_on_hand || 0), 0)} Units
+                      </span>
+                    </div>
+
+                    {viewModalStock.length > 0 ? (
+                      <div className="border border-slate-200 rounded-xl overflow-hidden">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-100 text-slate-700 uppercase text-[10px] font-bold">
+                            <tr>
+                              <th className="p-2.5">Depot Warehouse Location</th>
+                              <th className="p-2.5">Qty on Hand</th>
+                              <th className="p-2.5">Reorder Level</th>
+                              <th className="p-2.5 text-right">Inventory Health Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 text-slate-800">
+                            {viewModalStock.map((stk) => {
+                              const qty = Number(stk.quantity_on_hand || 0);
+                              const threshold = Number(stk.reorder_threshold || 2);
+                              const status = qty === 0 ? 'Out of Stock' : qty <= threshold ? 'Low Stock Warning' : 'In Stock';
+                              return (
+                                <tr key={stk.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="p-2.5 font-bold text-slate-900">
+                                    <div>
+                                      <span>{stk.warehouse_name || 'Central Warehouse'}</span>
+                                      {stk.warehouse_location && (
+                                        <span className="text-[10px] text-slate-500 block font-normal">{stk.warehouse_location}</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-2.5 font-mono font-bold text-slate-900">{qty} Units</td>
+                                  <td className="p-2.5 font-mono text-slate-600">{threshold} Units</td>
+                                  <td className="p-2.5 text-right">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase border ${
+                                        qty === 0
+                                          ? 'bg-rose-100 text-rose-800 border-rose-200'
+                                          : qty <= threshold
+                                          ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                          : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                      }`}
+                                    >
+                                      {status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center space-y-2">
+                        <Boxes className="w-8 h-8 text-slate-400 mx-auto" />
+                        <p className="font-bold text-slate-800">No Warehouse Allocation Records</p>
+                        <p className="text-slate-500 max-w-sm mx-auto">
+                          This product item does not have physical warehouse stock constraints or is managed as an unlimited digital service / subscription.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Bottom Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setShowViewModal(false);
+                  handleOpenProductModal(viewingProduct);
+                }}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center space-x-1.5"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span>Edit Product Record</span>
+              </button>
+
               <button
                 onClick={() => setShowViewModal(false)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-5 py-2 rounded-xl transition-colors cursor-pointer shadow-xs"
               >
                 Close Details
               </button>
@@ -781,78 +1250,159 @@ export default function ProductsTab({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">Manage Product Categories</h3>
               <button
-                onClick={() => setShowCategoryModal(false)}
+                onClick={() => {
+                  setShowCategoryModal(false);
+                  resetCategoryForm();
+                }}
                 className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            {/* Form to add new category */}
-            <form onSubmit={handleCreateCategory} className="space-y-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-              <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Add New Category</h4>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="Category Name (e.g. Cloud Services)"
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-slate-600 text-[10px] uppercase font-bold block mb-0.5">Category Type</label>
-                    <select
-                      value={newCatType}
-                      onChange={(e) => setNewCatType(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-2 py-1 text-xs text-slate-900 focus:outline-none cursor-pointer"
-                    >
-                      <option value="hardware">Hardware</option>
-                      <option value="service">Service</option>
-                      <option value="subscription">Subscription</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-slate-600 text-[10px] uppercase font-bold block mb-0.5">Discount Ceiling (%)</label>
-                    <input
-                      type="number"
-                      value={newCatCeiling}
-                      onChange={(e) => setNewCatCeiling(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-2 py-1 text-xs text-slate-900 font-mono focus:outline-none"
-                    />
-                  </div>
+            {/* Form to add or edit sub-category */}
+            <form onSubmit={handleSaveCategory} className="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                  {editingCategory ? 'Edit Sub-Category' : 'Add New Sub-Category'}
+                </h4>
+                {editingCategory && (
+                  <button
+                    type="button"
+                    onClick={resetCategoryForm}
+                    className="text-indigo-600 hover:text-indigo-800 text-[11px] font-semibold cursor-pointer"
+                  >
+                    + Switch to Add New
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="text-slate-600 text-[10px] uppercase font-bold block mb-0.5">Select Main Parent Category *</label>
+                  <select
+                    value={newCatParentId || (categoriesList.find(c => !c.parent_id)?.id || '')}
+                    onChange={(e) => setNewCatParentId(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none cursor-pointer font-bold"
+                  >
+                    {categoriesList.filter(c => !c.parent_id).map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name} ({cat.category_type.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="flex justify-end pt-1">
+                <div>
+                  <label className="text-slate-600 text-[10px] uppercase font-bold block mb-0.5">Sub-Category Name *</label>
+                  <input
+                    type="text"
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    placeholder="e.g. Rack Servers / Laptops / SaaS Licenses"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-600 text-[10px] uppercase font-bold block mb-0.5">Discount Ceiling Limit (%)</label>
+                  <input
+                    type="number"
+                    value={newCatCeiling}
+                    onChange={(e) => setNewCatCeiling(e.target.value)}
+                    placeholder="15"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex justify-end items-center space-x-2 pt-1">
+                  {editingCategory && (
+                    <button
+                      type="button"
+                      onClick={resetCategoryForm}
+                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
                   <button
                     type="submit"
                     className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
                   >
-                    + Save Category to DB
+                    {editingCategory ? 'Update Sub-Category' : '+ Add Sub-Category'}
                   </button>
                 </div>
               </div>
             </form>
 
-            {/* List existing categories */}
-            <div className="space-y-2 max-h-60 overflow-y-auto text-xs">
-              <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Existing Categories</h4>
-              <div className="space-y-1.5">
-                {categoriesList.map((cat) => (
-                  <div key={cat.id} className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    <span className="font-bold text-slate-900">{cat.name}</span>
-                    <span className="font-mono text-indigo-700 font-bold bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
-                      {cat.discount_ceiling_pct || 15}% Ceiling
-                    </span>
+            {/* List existing categories grouped by main category */}
+            <div className="space-y-3 max-h-64 overflow-y-auto text-xs pr-1">
+              <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Main Categories & Sub-Categories</h4>
+              {categoriesList.filter(c => !c.parent_id).map((mainCat) => {
+                const subCats = categoriesList.filter(sc => sc.parent_id === mainCat.id);
+                return (
+                  <div key={mainCat.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between font-bold text-slate-900 border-b border-slate-200 pb-1.5">
+                      <span className="flex items-center space-x-1.5">
+                        <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+                        <span>{mainCat.name}</span>
+                        <span className="text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.2 rounded-md font-extrabold uppercase">
+                          MAIN CATEGORY
+                        </span>
+                      </span>
+                      <span className="font-mono text-slate-600 text-[10px]">{mainCat.discount_ceiling_pct}% Default Ceiling</span>
+                    </div>
+
+                    {subCats.length > 0 ? (
+                      <div className="space-y-1.5 pl-2 border-l-2 border-indigo-200">
+                        {subCats.map((sc) => (
+                          <div
+                            key={sc.id}
+                            className={`flex items-center justify-between bg-white p-2 rounded-lg border transition-colors ${
+                              editingCategory?.id === sc.id ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <span className="font-semibold text-slate-800 flex items-center space-x-1">
+                              <span className="text-indigo-500 font-mono text-xs">↳</span>
+                              <span>{sc.name}</span>
+                            </span>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-mono text-emerald-700 font-bold text-[11px] mr-1">
+                                {sc.discount_ceiling_pct}% Ceiling
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleEditCategoryClick(sc)}
+                                className="text-slate-400 hover:text-indigo-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Edit Sub-Category"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(sc.id, sc.name)}
+                                className="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Delete Sub-Category"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic pl-3">No custom sub-categories added under {mainCat.name} yet.</p>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-end pt-3 border-t border-slate-100">
               <button
-                onClick={() => setShowCategoryModal(false)}
+                onClick={() => {
+                  setShowCategoryModal(false);
+                  resetCategoryForm();
+                }}
                 className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-xl transition-colors cursor-pointer"
               >
                 Close Manager

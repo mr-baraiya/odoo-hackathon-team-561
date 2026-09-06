@@ -88,6 +88,7 @@ async function getConnection() {
     namedQueryOne,
     queryAll,
     queryOne,
+    queryRow: queryOne,
     queryLiteralAll,
     queryLiteralOne,
   };

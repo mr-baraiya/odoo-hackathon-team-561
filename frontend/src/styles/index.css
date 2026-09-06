@@ -124,8 +124,18 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    min-height: 100%;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+  }
+  #root {
+    min-height: 100%;
   }
 }
 
@@ -136,29 +146,33 @@
   color: var(--danger) !important;
 }
 
-.overflow-y-auto {
+/* Custom sleek scrollbar for scrollable containers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide scrollbar strictly when explicitly requested */
+.scrollbar-none,
+.no-scrollbar {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;     /* Firefox */
 }
-.overflow-y-auto::-webkit-scrollbar {
-  display: none;             /* Chrome, Safari, Opera */
-}
-.overflow-hidden{
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none; 
-}
-.overflow-hidden::-webkit-scrollbar {
-  
-  display: none;             /* Chrome, Safari, Opera */
-
-}
-
-.overflow-auto{
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none; 
-}
-.overflow-auto::-webkit-scrollbar {
-  display: none;             /* Chrome, Safari, Opera */
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 

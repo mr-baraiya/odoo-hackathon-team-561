@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Download, Eye, Edit, Trash2, X, Building2 } from 'lucide-react';
 import customerService from '../../../services/customer.service';
+import { exportInvoicePDF } from '../../../utils/invoicePdfGenerator';
 
 export default function CustomersTab({
   customersList = [],
@@ -774,20 +775,37 @@ export default function CustomersTab({
                           <th className="p-2.5">Quote Ref</th>
                           <th className="p-2.5">Issued Date</th>
                           <th className="p-2.5">Amount Due</th>
-                          <th className="p-2.5 text-right">Payment Status</th>
+                          <th className="p-2.5 text-center">Payment Status</th>
+                          <th className="p-2.5 text-right">PDF Invoice</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 text-slate-700">
                         {customerInvoices.map((inv, idx) => (
                           <tr key={idx} className="hover:bg-slate-50">
-                            <td className="p-2.5 font-mono font-bold text-slate-900">{inv.invoice_id}</td>
+                            <td className="p-2.5 font-mono font-bold text-slate-900">{inv.invoice_id || inv.invoice_number}</td>
                             <td className="p-2.5 font-mono text-slate-600">{inv.quote_number || inv.quotation_id}</td>
                             <td className="p-2.5 font-mono text-slate-600">{inv.issued_at}</td>
                             <td className="p-2.5 font-mono font-bold text-emerald-700">${Number(inv.amount_due || 0).toLocaleString()}</td>
-                            <td className="p-2.5 text-right">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${inv.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            <td className="p-2.5 text-center">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${inv.status === 'PAID' || inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                                 {inv.status}
                               </span>
+                            </td>
+                            <td className="p-2.5 text-right">
+                              <button
+                                onClick={() => exportInvoicePDF({
+                                  invoice_number: inv.invoice_id || inv.invoice_number,
+                                  quote_number: inv.quote_number || inv.quotation_id,
+                                  customer_name: viewingCustomer?.company_name,
+                                  amount_due: inv.amount_due,
+                                  status: inv.status,
+                                })}
+                                className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-[11px] font-bold flex items-center space-x-1 ml-auto cursor-pointer"
+                                title="Download PDF Invoice"
+                              >
+                                <Download className="w-3 h-3" />
+                                <span>PDF</span>
+                              </button>
                             </td>
                           </tr>
                         ))}

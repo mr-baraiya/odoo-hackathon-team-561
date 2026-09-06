@@ -19,12 +19,15 @@ import {
   Truck,
 } from 'lucide-react';
 import inventoryService from '../../../services/inventory.service';
+import apiClient from '../../../services/apiClient';
+import productService from '../../../services/product.service';
 
 export default function InventoryTab({ warehousesList: initialWarehouses, stockList: initialStock, productList }) {
   const [activeSubTab, setActiveSubTab] = useState('stock'); // 'stock', 'alerts', 'warehouses', 'transfers'
   const [loading, setLoading] = useState(true);
   const [warehouses, setWarehouses] = useState([]);
   const [stockList, setStockList] = useState([]);
+  const [allProducts, setAllProducts] = useState(productList || []);
   const [reorderAlerts, setReorderAlerts] = useState([]);
   const [stockSearch, setStockSearch] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('all');
@@ -59,6 +62,13 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
     { id: 'tf_2', date: '2026-09-04 14:30', product: 'Optical Fiber Module', from: 'West Coast Distribution Center', to: 'Primary Hub (US-East)', qty: 10, status: 'Completed' },
   ]);
 
+  // Sync allProducts if productList prop updates
+  useEffect(() => {
+    if (Array.isArray(productList) && productList.length > 0) {
+      setAllProducts(productList);
+    }
+  }, [productList]);
+
   // Load data on mount
   useEffect(() => {
     fetchData();
@@ -67,22 +77,39 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [whData, stockData, alertsData] = await Promise.all([
+      const [whData, stockData, alertsData, prodData] = await Promise.allSettled([
         inventoryService.getWarehouses(),
         inventoryService.getInventoryStock(),
         inventoryService.getReorderAlerts(),
+        productService.getProducts(),
       ]);
-      if (Array.isArray(whData)) setWarehouses(whData);
-      else setWarehouses(initialWarehouses || []);
 
-      if (Array.isArray(stockData)) setStockList(stockData);
-      else setStockList(initialStock || []);
+      if (whData.status === 'fulfilled' && Array.isArray(whData.value)) {
+        setWarehouses(whData.value);
+      } else {
+        setWarehouses(initialWarehouses || []);
+      }
 
-      if (Array.isArray(alertsData)) setReorderAlerts(alertsData);
+      if (stockData.status === 'fulfilled' && Array.isArray(stockData.value)) {
+        setStockList(stockData.value);
+      } else {
+        setStockList(initialStock || []);
+      }
+
+      if (alertsData.status === 'fulfilled' && Array.isArray(alertsData.value)) {
+        setReorderAlerts(alertsData.value);
+      }
+
+      if (prodData.status === 'fulfilled' && Array.isArray(prodData.value) && prodData.value.length > 0) {
+        setAllProducts(prodData.value);
+      } else if (Array.isArray(productList) && productList.length > 0) {
+        setAllProducts(productList);
+      }
     } catch (err) {
       console.warn('Inventory API load fallback:', err.message);
       setWarehouses(initialWarehouses || []);
       setStockList(initialStock || []);
+      setAllProducts(productList || []);
     } finally {
       setLoading(false);
     }
@@ -154,7 +181,7 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
       setEditingStock(null);
       setStockForm({
         warehouse_id: warehouses[0]?.id || '',
-        product_id: productList[0]?.id || '',
+        product_id: allProducts[0]?.id || '',
         quantity_on_hand: 10,
         reorder_threshold: 3,
         replenishment_lead_days: 7,
@@ -229,7 +256,7 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
 
     const fromWh = warehouses.find((w) => w.id === from_warehouse_id)?.name || 'Source';
     const toWh = warehouses.find((w) => w.id === to_warehouse_id)?.name || 'Target';
-    const prodName = productList.find((p) => p.id === product_id)?.name || 'Product';
+    const prodName = allProducts.find((p) => p.id === product_id)?.name || 'Product';
 
     setTransferLogs([
       {
@@ -251,7 +278,7 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
   // Filtered Stock List
   const filteredStock = stockList.filter((s) => {
     const matchesWh = warehouseFilter === 'all' || s.warehouse_id === warehouseFilter;
-    const prod = productList.find((p) => p.id === s.product_id);
+    const prod = allProducts.find((p) => p.id === s.product_id);
     const wh = warehouses.find((w) => w.id === s.warehouse_id);
     const query = stockSearch.toLowerCase();
     const matchesSearch =
@@ -293,10 +320,12 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => {
+                const defaultFrom = warehouses[0]?.id || '';
+                const defaultTo = warehouses.filter((w) => w.id !== defaultFrom)[0]?.id || '';
                 setTransferForm({
-                  from_warehouse_id: warehouses[0]?.id || '',
-                  to_warehouse_id: warehouses[1]?.id || '',
-                  product_id: productList[0]?.id || '',
+                  from_warehouse_id: defaultFrom,
+                  to_warehouse_id: defaultTo,
+                  product_id: allProducts[0]?.id || '',
                   quantity: 1,
                   reason: '',
                 });
@@ -448,7 +477,7 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                   </tr>
                 ) : (
                   filteredStock.map((s) => {
-                    const prod = productList.find((p) => p.id === s.product_id);
+                    const prod = allProducts.find((p) => p.id === s.product_id);
                     const wh = warehouses.find((w) => w.id === s.warehouse_id);
                     const qty = Number(s.quantity_on_hand || 0);
                     const threshold = Number(s.reorder_threshold || 0);
@@ -512,7 +541,6 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                           )}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          {/* BARE ACTION ICONS WITHOUT BOXES */}
                           <div className="inline-flex items-center gap-1">
                             <button
                               onClick={() => handleOpenStockModal(s)}
@@ -570,7 +598,7 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
             {stockList
               .filter((s) => s.quantity_on_hand <= s.reorder_threshold)
               .map((s) => {
-                const prod = productList.find((p) => p.id === s.product_id);
+                const prod = allProducts.find((p) => p.id === s.product_id);
                 const wh = warehouses.find((w) => w.id === s.warehouse_id);
                 const qty = Number(s.quantity_on_hand || 0);
                 const threshold = Number(s.reorder_threshold || 0);
@@ -671,7 +699,6 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                   <span className="font-mono font-bold text-indigo-700">{w.shipping_cost_weight}x</span>
                 </div>
 
-                {/* BARE ICONS WITHOUT BOXES */}
                 <div className="flex justify-end items-center gap-2 pt-2">
                   <button
                     onClick={() => handleOpenWarehouseModal(w)}
@@ -703,7 +730,18 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
               <p className="text-xs text-slate-600">Audit trail of stock movements transferred across distribution hubs.</p>
             </div>
             <button
-              onClick={() => setShowTransferModal(true)}
+              onClick={() => {
+                const defaultFrom = warehouses[0]?.id || '';
+                const defaultTo = warehouses.filter((w) => w.id !== defaultFrom)[0]?.id || '';
+                setTransferForm({
+                  from_warehouse_id: defaultFrom,
+                  to_warehouse_id: defaultTo,
+                  product_id: allProducts[0]?.id || '',
+                  quantity: 1,
+                  reason: '',
+                });
+                setShowTransferModal(true);
+              }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl cursor-pointer flex items-center gap-1"
             >
               <ArrowRightLeft className="w-3.5 h-3.5" /> Transfer Stock
@@ -849,7 +887,7 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                   value={stockForm.warehouse_id}
                   onChange={(e) => setStockForm({ ...stockForm, warehouse_id: e.target.value })}
                   disabled={Boolean(editingStock)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer font-medium"
                 >
                   {warehouses.map((w) => (
                     <option key={w.id} value={w.id}>
@@ -865,11 +903,11 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                   value={stockForm.product_id}
                   onChange={(e) => setStockForm({ ...stockForm, product_id: e.target.value })}
                   disabled={Boolean(editingStock)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer font-medium"
                 >
-                  {productList.map((p) => (
+                  {allProducts.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {p.name} ({p.sku || 'SKU'})
                     </option>
                   ))}
                 </select>
@@ -952,13 +990,19 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                 <select
                   value={transferForm.product_id}
                   onChange={(e) => setTransferForm({ ...transferForm, product_id: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer font-medium"
                 >
-                  {productList.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
+                  {allProducts.map((p) => {
+                    const sourceStockItem = stockList.find(
+                      (s) => String(s.warehouse_id) === String(transferForm.from_warehouse_id) && String(s.product_id) === String(p.id)
+                    );
+                    const stockQty = sourceStockItem ? Number(sourceStockItem.quantity_on_hand || 0) : 0;
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.sku || 'SKU'}) — {stockQty} units available
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -967,12 +1011,21 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                   <label className="font-semibold text-slate-700 block">Source Warehouse Hub *</label>
                   <select
                     value={transferForm.from_warehouse_id}
-                    onChange={(e) => setTransferForm({ ...transferForm, from_warehouse_id: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    onChange={(e) => {
+                      const newFromId = e.target.value;
+                      const remainingTargets = warehouses.filter((w) => w.id !== newFromId);
+                      const newToId = transferForm.to_warehouse_id === newFromId ? (remainingTargets[0]?.id || '') : transferForm.to_warehouse_id;
+                      setTransferForm({
+                        ...transferForm,
+                        from_warehouse_id: newFromId,
+                        to_warehouse_id: newToId,
+                      });
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer font-medium"
                   >
                     {warehouses.map((w) => (
                       <option key={w.id} value={w.id}>
-                        {w.name}
+                        {w.name} ({w.location || 'General'})
                       </option>
                     ))}
                   </select>
@@ -983,13 +1036,15 @@ export default function InventoryTab({ warehousesList: initialWarehouses, stockL
                   <select
                     value={transferForm.to_warehouse_id}
                     onChange={(e) => setTransferForm({ ...transferForm, to_warehouse_id: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer font-medium"
                   >
-                    {warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name}
-                      </option>
-                    ))}
+                    {warehouses
+                      .filter((w) => w.id !== transferForm.from_warehouse_id)
+                      .map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name} ({w.location || 'General'})
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>

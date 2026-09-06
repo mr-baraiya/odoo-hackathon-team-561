@@ -370,11 +370,10 @@ export default function DealFlowHeader() {
                     if (fieldErrors.currentPassword) setFieldErrors({ ...fieldErrors, currentPassword: '' });
                   }}
                   placeholder="Enter old password"
-                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 transition-all font-mono ${
-                    fieldErrors.currentPassword
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 transition-all font-mono ${fieldErrors.currentPassword
                       ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-600'
                       : 'border-slate-300 focus:ring-indigo-500/20 focus:border-indigo-600'
-                  }`}
+                    }`}
                 />
                 {fieldErrors.currentPassword && (
                   <p className="text-xs text-rose-600 font-medium mt-1">{fieldErrors.currentPassword}</p>
@@ -394,11 +393,10 @@ export default function DealFlowHeader() {
                     if (fieldErrors.newPassword) setFieldErrors({ ...fieldErrors, newPassword: '' });
                   }}
                   placeholder="Minimum 6 characters"
-                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 transition-all font-mono ${
-                    fieldErrors.newPassword
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 transition-all font-mono ${fieldErrors.newPassword
                       ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-600'
                       : 'border-slate-300 focus:ring-indigo-500/20 focus:border-indigo-600'
-                  }`}
+                    }`}
                 />
                 {fieldErrors.newPassword ? (
                   <p className="text-xs text-rose-600 font-medium mt-1">{fieldErrors.newPassword}</p>
@@ -420,11 +418,10 @@ export default function DealFlowHeader() {
                     if (fieldErrors.confirmPassword) setFieldErrors({ ...fieldErrors, confirmPassword: '' });
                   }}
                   placeholder="Re-enter new password"
-                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 transition-all font-mono ${
-                    fieldErrors.confirmPassword
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 border rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 transition-all font-mono ${fieldErrors.confirmPassword
                       ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-600'
                       : 'border-slate-300 focus:ring-indigo-500/20 focus:border-indigo-600'
-                  }`}
+                    }`}
                 />
                 {fieldErrors.confirmPassword && (
                   <p className="text-xs text-rose-600 font-medium mt-1">{fieldErrors.confirmPassword}</p>

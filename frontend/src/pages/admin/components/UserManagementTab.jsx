@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit, Key } from 'lucide-react';
+import { Eye, Edit, Key, Trash2 } from 'lucide-react';
 import UserViewModal from './UserViewModal';
 import UserFormModal from './UserFormModal';
 import ResetPasswordModal from './ResetPasswordModal';
@@ -14,6 +14,7 @@ export default function UserManagementTab({
   handleOpenUserModal,
   handleToggleUserStatus,
   handleViewUser,
+  handleDeleteUser,
   showUserModal,
   setShowUserModal,
   editingUser,
@@ -189,6 +190,14 @@ export default function UserManagementTab({
                       className="p-1 text-slate-500 hover:text-amber-600 transition-colors inline-flex items-center justify-center cursor-pointer focus:outline-none"
                     >
                       <Key className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteUser && handleDeleteUser(u)}
+                      title="Delete User Account"
+                      className="p-1 text-slate-500 hover:text-rose-600 transition-colors inline-flex items-center justify-center cursor-pointer focus:outline-none"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
                 </tr>

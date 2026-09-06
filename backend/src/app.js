@@ -72,6 +72,19 @@ app.get('/api', (req, res, next) => {
 
 
 app.use('/files', express.static(constant.tmpStoragePath));
+
+// Detailed API Logging Middleware for all incoming API routes
+app.use('/api', (req, res, next) => {
+  console.log(`\n====================================================`);
+  console.log(`[API INCOMING] ${req.method} ${req.originalUrl} | IP: ${req.ip || req.socket.remoteAddress}`);
+  if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body && Object.keys(req.body).length > 0) {
+    const sanitizedBody = { ...req.body };
+    if (sanitizedBody.password) sanitizedBody.password = '***';
+    console.log(`[API PAYLOAD]`, JSON.stringify(sanitizedBody, null, 2));
+  }
+  next();
+});
+
 app.use('/api', apiRoutes);
 
 app.use(errorHandler);

@@ -40,7 +40,7 @@ const env = {
   emailId: process.env.EMAIL_ID || 'admin@dealflow360.com',
   emailPassword: process.env.EMAIL_PASSWORD || 'password',
   emailSmtpHost: process.env.EMAIL_SMTP_HOST || 'smtp.gmail.com',
-  emailSmtpPort: process.env.EMAIL_SMTP_PORT || 587,
+  emailSmtpPort: process.env.EMAIL_SMTP_PORT ? parseInt(process.env.EMAIL_SMTP_PORT, 10) : 587,
 
   // Frontend URL
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',

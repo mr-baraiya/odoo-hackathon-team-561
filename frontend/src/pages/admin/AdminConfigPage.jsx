@@ -20,6 +20,7 @@ import UpsellTab from './components/UpsellTab';
 import ReportsTab from './components/ReportsTab';
 import DealHealthTab from './components/DealHealthTab';
 import AuditLogsTab from './components/AuditLogsTab';
+import SystemSettingsTab from './components/SystemSettingsTab';
 
 const ROUTE_TAB_MAP = {
   '/admin/home': 'dashboard',
@@ -36,6 +37,7 @@ const ROUTE_TAB_MAP = {
   '/admin/health': 'health',
   '/admin/deal-health': 'health',
   '/admin/audit': 'audit',
+  '/admin/settings': 'settings',
 };
 
 const TAB_ROUTE_MAP = {
@@ -51,6 +53,7 @@ const TAB_ROUTE_MAP = {
   reports: '/admin/reports',
   health: '/admin/deal-health',
   audit: '/admin/audit',
+  settings: '/admin/settings',
 };
 
 export default function AdminConfigPage() {
@@ -155,7 +158,7 @@ export default function AdminConfigPage() {
   // Fetch catalog products from backend DB
   const fetchProducts = async () => {
     try {
-      const data = await apiClient.get('/products');
+      const data = await apiClient.get('/catalog/products');
       if (Array.isArray(data) && data.length > 0) {
         setProductList(data);
       }
@@ -163,8 +166,6 @@ export default function AdminConfigPage() {
       console.warn('Failed to load products from DB API:', err.message);
     }
   };
-
-  const [dashboardSummary, setDashboardSummary] = useState(null);
 
   // Fetch customer tiers from backend DB
   const fetchTiers = async () => {
@@ -178,6 +179,8 @@ export default function AdminConfigPage() {
     }
   };
 
+  const [dashboardSummary, setDashboardSummary] = useState(null);
+
   // Fetch dashboard summary metrics from DB API
   const fetchDashboardSummary = async () => {
     try {
@@ -190,12 +193,27 @@ export default function AdminConfigPage() {
     }
   };
 
+  const [liveDealHealth, setLiveDealHealth] = useState(dealHealth || { alerts: [] });
+
+  // Fetch live deal health alerts from DB API
+  const fetchLiveDealHealth = async () => {
+    try {
+      const data = await apiClient.get('/deal-health/alerts');
+      if (Array.isArray(data)) {
+        setLiveDealHealth({ alerts: data });
+      }
+    } catch (err) {
+      console.warn('Failed to load deal health alerts from DB API:', err.message);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchCustomers();
     fetchProducts();
     fetchTiers();
     fetchDashboardSummary();
+    fetchLiveDealHealth();
   }, []);
 
   // 5. Discount & Approval Rules State
@@ -272,6 +290,25 @@ export default function AdminConfigPage() {
     } catch (err) {
       console.error('[Frontend handleConfirmResetPassword] Error:', err);
       toast.error(err.message || 'Failed to reset user password');
+    }
+  };
+
+  const handleDeleteUser = async (userToDelete) => {
+    if (!userToDelete) return;
+    const confirmDelete = window.confirm(`Are you sure you want to permanently delete user "${userToDelete.name || userToDelete.email}"? This action cannot be undone.`);
+    if (!confirmDelete) return;
+
+    try {
+      await userService.deleteUser(userToDelete.id);
+      toast.success(`User "${userToDelete.name || userToDelete.email}" permanently deleted from database.`);
+      setAuditLogs([
+        { id: `log_${Date.now()}`, timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19), actor: 'System Administrator', role: 'admin', action: 'USER_DELETED', target: userToDelete.email || userToDelete.id, ip: '127.0.0.1' },
+        ...auditLogs,
+      ]);
+      await fetchUsers();
+    } catch (err) {
+      console.error('[Frontend handleDeleteUser] Error:', err);
+      toast.error(err.message || 'Failed to delete user account');
     }
   };
 
@@ -401,6 +438,7 @@ export default function AdminConfigPage() {
     { id: 'reports', label: 'Analytics Reports' },
     { id: 'health', label: 'Deal Health Alerts' },
     { id: 'audit', label: 'Audit Logs' },
+    { id: 'settings', label: 'System Settings' },
   ];
 
   return (
@@ -410,7 +448,7 @@ export default function AdminConfigPage() {
         tabsList={tabsList}
         activeTab={activeTab}
         handleTabClick={handleTabClick}
-        dealHealth={dealHealth}
+        dealHealth={liveDealHealth}
       />
 
       {/* RIGHT MAIN CONTENT CONTAINER (SCROLLS INDEPENDENTLY) */}
@@ -480,6 +518,7 @@ export default function AdminConfigPage() {
             resettingUser={resettingUser}
             handleOpenResetPasswordModal={handleOpenResetPasswordModal}
             handleConfirmResetPassword={handleConfirmResetPassword}
+            handleDeleteUser={handleDeleteUser}
           />
         )}
 
@@ -563,7 +602,8 @@ export default function AdminConfigPage() {
         {/* TAB 11: DEAL HEALTH ALERTS */}
         {activeTab === 'health' && (
           <DealHealthTab
-            dealHealth={dealHealth}
+            dealHealth={liveDealHealth}
+            onRefresh={fetchLiveDealHealth}
           />
         )}
 
@@ -573,6 +613,11 @@ export default function AdminConfigPage() {
             auditLogs={auditLogs}
             handleExportCSV={handleExportCSV}
           />
+        )}
+
+        {/* TAB 13: SYSTEM SETTINGS */}
+        {activeTab === 'settings' && (
+          <SystemSettingsTab />
         )}
       </main>
     </div>

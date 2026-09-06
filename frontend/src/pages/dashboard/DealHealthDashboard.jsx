@@ -1,5 +1,4 @@
 import React from 'react';
-import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { useDealFlow } from '../../context/DealFlowContext';
 
@@ -9,7 +8,7 @@ export default function DealHealthDashboard() {
 
   const handleNudge = async (alertId, quoteId) => {
     const res = await sendNudge(alertId, quoteId, 'Automated manager nudge: Please follow up on stalled deal.');
-    toast.success(res.message || 'Nudge dispatched.');
+    alert(res.message);
   };
 
   return (

@@ -11,6 +11,29 @@ const DISCOUNT_RULES = [
   { id: 'disc_103', name: 'Subscriptions Max Discount', category_type: 'subscription', max_discount_pct: 20.0 },
 ];
 
+let ROLE_DISCOUNT_LIMITS = [
+  { role: 'sales_rep', role_label: 'Sales Representative', max_discount: 10, auto_approve: true, require_reason: false },
+  { role: 'sales_manager', role_label: 'Sales Manager', max_discount: 25, auto_approve: false, require_reason: true },
+  { role: 'finance_ops', role_label: 'Finance Operations', max_discount: 50, auto_approve: false, require_reason: true },
+  { role: 'admin', role_label: 'Executive Admin', max_discount: 100, auto_approve: false, require_reason: true },
+];
+
+router.get('/role-limits', authenticateJWT, (req, res) => {
+  res.json(ROLE_DISCOUNT_LIMITS);
+});
+
+router.put('/role-limits', authenticateJWT, authorizeRoles('admin'), (req, res) => {
+  const { role, max_discount, auto_approve, require_reason } = req.body;
+  const existing = ROLE_DISCOUNT_LIMITS.find((r) => r.role === role);
+  if (existing) {
+    if (max_discount !== undefined) existing.max_discount = Number(max_discount);
+    if (auto_approve !== undefined) existing.auto_approve = Boolean(auto_approve);
+    if (require_reason !== undefined) existing.require_reason = Boolean(require_reason);
+    return res.json(existing);
+  }
+  res.status(404).json({ message: 'Role limit config not found' });
+});
+
 router.get('/rules', authenticateJWT, (req, res) => {
   res.json(DISCOUNT_RULES);
 });

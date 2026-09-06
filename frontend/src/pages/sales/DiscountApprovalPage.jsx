@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import toast from 'react-hot-toast';
 import { useDealFlow } from '../../context/DealFlowContext';
 
 export default function DiscountApprovalPage() {
@@ -14,17 +13,15 @@ export default function DiscountApprovalPage() {
 
   const handleAction = async (actionType) => {
     if (!reason.trim()) {
-      toast.error('Enter a decision reason for the audit trail.');
+      alert('Please enter a decision reason for the audit trail.');
       return;
     }
     setActing(true);
     try {
       await approveQuotation(activeQuote.id, actionType, reason);
-      toast.success(`Quotation ${actionType.replace('_', ' ')} submitted.`);
       setReason('');
     } catch (err) {
       console.error(err);
-      toast.error(err.message || 'Approval action failed.');
     } finally {
       setActing(false);
     }

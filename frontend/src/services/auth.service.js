@@ -38,9 +38,29 @@ export const authService = {
     return await apiClient.post("/auth/magic-link", { email });
   },
 
+  // Verify magic link token and complete auto-login
+  async verifyMagicLink(magicToken) {
+    return await apiClient.post("/auth/verify-magic-link", { magicToken });
+  },
+
   // Change password for logged-in user
   async changePassword(currentPassword, newPassword) {
     return await apiClient.post("/auth/change-password", { currentPassword, newPassword });
+  },
+
+  // Register new customer account
+  async registerCustomer(registrationData) {
+    return await apiClient.post("/auth/register-customer", registrationData);
+  },
+
+  // Verify email OTP code
+  async verifyEmailOtp(email, otp) {
+    return await apiClient.post("/auth/verify-email-otp", { email, otp });
+  },
+
+  // Resend email OTP code
+  async resendEmailOtp(email) {
+    return await apiClient.post("/auth/resend-email-otp", { email });
   },
 };
 

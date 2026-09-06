@@ -14,7 +14,7 @@ CREATE TABLE users (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     full_name           VARCHAR(150) NOT NULL,
     email               VARCHAR(150) NOT NULL UNIQUE,
-    phone_number        VARCHAR(50),
+    phone_number        VARCHAR(50) UNIQUE,
     role                user_role NOT NULL,
     password_hash       TEXT,
     magic_link_token    TEXT,
