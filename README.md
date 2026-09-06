@@ -1,5 +1,9 @@
 # DealFlow360 — Intelligent B2B Sales Operations Platform
 
+[![Video Demo](https://img.shields.io/badge/▶%20Watch%20Video%20Demo-Google%20Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1h3Jr1bZEY5IVCA4t7sAvPSKqLOQlQp3N/view?usp=sharing)
+
+> **Demonstration Video**: [Watch DealFlow360 Platform Demo Video on Google Drive](https://drive.google.com/file/d/1h3Jr1bZEY5IVCA4t7sAvPSKqLOQlQp3N/view?usp=sharing)
+
 DealFlow360 is an enterprise-grade, self-governing B2B Sales Operations Platform. It enforces multi-tiered discount discipline, automates approval routing chains, calculates real-time margin deltas, greedily splits multi-warehouse fulfillment stock, handles hybrid recurring subscription billing, and manages integrated payment gateway transactions.
 
 ---
