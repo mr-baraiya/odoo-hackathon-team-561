@@ -33,9 +33,17 @@ async function updateApprovalInDatabase(id, action, reason, performedByEmail) {
       [action, reason, approval.id],
     );
 
-    const nextStatus = action === "rejected" ? "rejected" : action === "returned_for_revision" ? "draft" : null;
+    const nextStatus =
+      action === "rejected"
+        ? "rejected"
+        : action === "returned_for_revision"
+          ? "draft"
+          : null;
     if (nextStatus) {
-      await db.query("UPDATE quotations SET status = $1::quotation_status, updated_at = now() WHERE id = $2", [nextStatus, approval.quotation_id]);
+      await db.query(
+        "UPDATE quotations SET status = $1::quotation_status, updated_at = now() WHERE id = $2",
+        [nextStatus, approval.quotation_id],
+      );
     } else {
       await db.query(
         `UPDATE quotations SET status = 'approved'::quotation_status, updated_at = now()
@@ -50,7 +58,12 @@ async function updateApprovalInDatabase(id, action, reason, performedByEmail) {
     await db.query(
       `INSERT INTO audit_log (entity_type, entity_id, action, performed_by_user_id, reason)
        VALUES ('quotation', $1, $2, $3, $4)`,
-      [approval.quotation_id, `approval_${action}`, approval.performed_by_user_id || null, reason],
+      [
+        approval.quotation_id,
+        `approval_${action}`,
+        approval.performed_by_user_id || null,
+        reason,
+      ],
     );
     await db.query("COMMIT");
     return { quoteId: approval.quote_number };
@@ -295,8 +308,17 @@ router.post(
   authorizeRoles("sales_manager", "finance_ops", "admin"),
   async (req, res) => {
     const { reason } = req.body;
-    const databaseResult = await updateApprovalInDatabase(req.params.id, "approved", reason || "Approved by manager", req.user.email);
-    if (databaseResult) return res.json({ message: "Approval saved to database.", quote: databaseResult });
+    const databaseResult = await updateApprovalInDatabase(
+      req.params.id,
+      "approved",
+      reason || "Approved by manager",
+      req.user.email,
+    );
+    if (databaseResult)
+      return res.json({
+        message: "Approval saved to database.",
+        quote: databaseResult,
+      });
     const quote = seed.QUOTATIONS.find((q) =>
       (q.approvals || []).some((a) => a.id === req.params.id),
     );
@@ -337,8 +359,17 @@ router.post(
   authorizeRoles("sales_manager", "finance_ops", "admin"),
   async (req, res) => {
     const { reason } = req.body;
-    const databaseResult = await updateApprovalInDatabase(req.params.id, "rejected", reason || "Rejected by manager", req.user.email);
-    if (databaseResult) return res.json({ message: "Rejection saved to database.", quote: databaseResult });
+    const databaseResult = await updateApprovalInDatabase(
+      req.params.id,
+      "rejected",
+      reason || "Rejected by manager",
+      req.user.email,
+    );
+    if (databaseResult)
+      return res.json({
+        message: "Rejection saved to database.",
+        quote: databaseResult,
+      });
     const quote = seed.QUOTATIONS.find((q) =>
       (q.approvals || []).some((a) => a.id === req.params.id),
     );
@@ -376,8 +407,17 @@ router.post(
   authorizeRoles("sales_manager", "finance_ops", "admin"),
   async (req, res) => {
     const { reason } = req.body;
-    const databaseResult = await updateApprovalInDatabase(req.params.id, "returned_for_revision", reason || "Returned for revision", req.user.email);
-    if (databaseResult) return res.json({ message: "Return request saved to database.", quote: databaseResult });
+    const databaseResult = await updateApprovalInDatabase(
+      req.params.id,
+      "returned_for_revision",
+      reason || "Returned for revision",
+      req.user.email,
+    );
+    if (databaseResult)
+      return res.json({
+        message: "Return request saved to database.",
+        quote: databaseResult,
+      });
     const quote = seed.QUOTATIONS.find((q) =>
       (q.approvals || []).some((a) => a.id === req.params.id),
     );

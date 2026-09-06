@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
 import { AuthProvider } from "./context/AuthContext";
@@ -20,6 +25,7 @@ import FulfillmentSplitPage from "./pages/sales/FulfillmentSplitPage";
 import SubscriptionBillingPage from "./pages/sales/SubscriptionBillingPage";
 import CustomerPortalPage from "./pages/portal/CustomerPortalPage";
 import DealHealthDashboard from "./pages/dashboard/DealHealthDashboard";
+import FinanceDashboardPage from "./pages/dashboard/FinanceDashboardPage";
 import AdminConfigPage from "./pages/admin/AdminConfigPage";
 import NotFound from "./pages/notfound/NotFound";
 
@@ -45,12 +51,14 @@ function AppRoutes() {
       <Route path="/contact-support" element={<ContactSupportPage />} />
 
       {/* Role Specific Routes Pattern (e.g. /sales_rep/home, /sales_manager/home) */}
-      
+
       {/* 1. Sales Representative Routes */}
       <Route
         path="/sales_rep/home"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <PipelinePage />
             </DealFlowLayout>
@@ -60,7 +68,9 @@ function AppRoutes() {
       <Route
         path="/sales_rep/pipeline"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <PipelinePage />
             </DealFlowLayout>
@@ -70,7 +80,9 @@ function AppRoutes() {
       <Route
         path="/sales_rep/builder"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <QuotationBuilderPage />
             </DealFlowLayout>
@@ -110,7 +122,9 @@ function AppRoutes() {
       <Route
         path="/sales_rep/deal-health"
         element={
-          <ProtectedRoute allowedRoles={["sales_manager", "finance_ops", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_manager", "finance_ops", "admin"]}
+          >
             <DealFlowLayout>
               <DealHealthDashboard />
             </DealFlowLayout>
@@ -206,7 +220,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={["finance_ops", "admin"]}>
             <DealFlowLayout>
-              <SubscriptionBillingPage />
+              <FinanceDashboardPage />
             </DealFlowLayout>
           </ProtectedRoute>
         }
@@ -214,7 +228,9 @@ function AppRoutes() {
       <Route
         path="/finance_ops/pipeline"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <PipelinePage />
             </DealFlowLayout>
@@ -476,7 +492,9 @@ function AppRoutes() {
       <Route
         path="/dealflow/pipeline"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <PipelinePage />
             </DealFlowLayout>
@@ -486,7 +504,9 @@ function AppRoutes() {
       <Route
         path="/dealflow/quotations"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <PipelinePage />
             </DealFlowLayout>
@@ -496,7 +516,9 @@ function AppRoutes() {
       <Route
         path="/dealflow/builder"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <QuotationBuilderPage />
             </DealFlowLayout>
@@ -506,7 +528,9 @@ function AppRoutes() {
       <Route
         path="/dealflow/builder/:id"
         element={
-          <ProtectedRoute allowedRoles={["sales_rep", "sales_manager", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_rep", "sales_manager", "admin"]}
+          >
             <DealFlowLayout>
               <QuotationBuilderPage />
             </DealFlowLayout>
@@ -516,7 +540,9 @@ function AppRoutes() {
       <Route
         path="/dealflow/approvals"
         element={
-          <ProtectedRoute allowedRoles={["sales_manager", "finance_ops", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_manager", "finance_ops", "admin"]}
+          >
             <DealFlowLayout>
               <DiscountApprovalPage />
             </DealFlowLayout>
@@ -546,7 +572,9 @@ function AppRoutes() {
       <Route
         path="/dealflow/deal-health"
         element={
-          <ProtectedRoute allowedRoles={["sales_manager", "finance_ops", "admin"]}>
+          <ProtectedRoute
+            allowedRoles={["sales_manager", "finance_ops", "admin"]}
+          >
             <DealFlowLayout>
               <DealHealthDashboard />
             </DealFlowLayout>
@@ -565,7 +593,10 @@ function AppRoutes() {
       />
 
       {/* Customer Portal Restricted Standalone Route */}
-      <Route path="/dealflow/portal/quote/:id" element={<CustomerPortalPage />} />
+      <Route
+        path="/dealflow/portal/quote/:id"
+        element={<CustomerPortalPage />}
+      />
 
       {/* Fallback Route */}
       <Route path="*" element={<NotFound />} />
