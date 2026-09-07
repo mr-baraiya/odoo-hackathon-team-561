@@ -60,6 +60,9 @@ app.use(express.urlencoded({ extended: true }));
 
 const healthRoutes = require('./routes/health.route');
 
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+app.get('/favicon.png', (req, res) => res.status(204).end());
+
 app.get('/ping', (req, res) => { res.send('pong (DealFlow360)'); });
 app.use('/health', healthRoutes);
 

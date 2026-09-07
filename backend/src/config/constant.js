@@ -2,15 +2,24 @@ const path = require('path');
 const fs = require('fs');
 const errorCodes = require('./errorCode');
 
-const fileStoragePath = path.join(__dirname, '../../files');
-const whatsappCachePath = path.join(__dirname, '../../whatsapp_cache');
-const tmpStoragePath = path.join(__dirname, '../../tmp');
-const metaStorageFilePath = path.join(__dirname, '../../meta.json');
+const os = require('os');
 
-if (!fs.existsSync(fileStoragePath)) fs.mkdirSync(fileStoragePath);
-if (!fs.existsSync(whatsappCachePath)) fs.mkdirSync(whatsappCachePath);
-if (!fs.existsSync(tmpStoragePath)) fs.mkdirSync(tmpStoragePath);
-if (!fs.existsSync(metaStorageFilePath)) fs.writeFileSync(metaStorageFilePath, JSON.stringify({}));
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const baseDir = isServerless ? os.tmpdir() : path.join(__dirname, '../../');
+
+const fileStoragePath = isServerless ? path.join(baseDir, 'files') : path.join(__dirname, '../../files');
+const whatsappCachePath = isServerless ? path.join(baseDir, 'whatsapp_cache') : path.join(__dirname, '../../whatsapp_cache');
+const tmpStoragePath = isServerless ? path.join(baseDir, 'tmp') : path.join(__dirname, '../../tmp');
+const metaStorageFilePath = isServerless ? path.join(baseDir, 'meta.json') : path.join(__dirname, '../../meta.json');
+
+try {
+  if (!fs.existsSync(fileStoragePath)) fs.mkdirSync(fileStoragePath, { recursive: true });
+  if (!fs.existsSync(whatsappCachePath)) fs.mkdirSync(whatsappCachePath, { recursive: true });
+  if (!fs.existsSync(tmpStoragePath)) fs.mkdirSync(tmpStoragePath, { recursive: true });
+  if (!fs.existsSync(metaStorageFilePath)) fs.writeFileSync(metaStorageFilePath, JSON.stringify({}));
+} catch (err) {
+  console.warn('Storage init skipped (read-only environment):', err.message);
+}
 
 module.exports = {
   fileStoragePath,
