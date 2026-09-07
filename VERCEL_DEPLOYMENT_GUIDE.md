@@ -1,22 +1,52 @@
-# DealFlow360 — Separate Vercel Deployment Guide
+# DealFlow360 — Vercel Multi-Service Monorepo Deployment Guide
 
-This guide details how to deploy **DealFlow360** on Vercel as two separate, independent projects:
-1. **Backend API Server (`backend/`)**
-2. **Frontend Web Application (`frontend/`)**
+This guide details how to deploy **DealFlow360** on Vercel using Vercel's unified Monorepo Multi-Service architecture.
 
 ---
 
-## 1. Deploying the Backend (`backend/`)
+## 1. Root `vercel.json` Multi-Service Configuration
 
-### Option A: Via Vercel Web Dashboard
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard) and click **Add New... → Project**.
-2. Import your GitHub repository (`odoo-hackathon-team-561`).
-3. Set **Root Directory** to `backend`.
-4. Under **Framework Preset**, select **Other**.
-5. Under **Environment Variables**, add the required backend variables:
+The root directory contains [vercel.json](file:///d:/VS_CODES/Projects/odoo-hackathon-team-561/vercel.json) configuring both `frontend` (Vite) and `backend` (Express) services in a single repository import:
+
+```json
+{
+  "services": {
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite"
+    },
+    "backend": {
+      "root": "backend"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api(/.*)?",
+      "destination": {
+        "type": "service",
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "frontend"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## 2. Deploying on Vercel Dashboard
+
+1. Import your GitHub repository (`mr-baraiya/odoo-hackathon-team-561`) in Vercel.
+2. Vercel will automatically detect the root `vercel.json` and configure both `frontend` (Vite) and `backend` (Express) services.
+3. Under **Environment Variables**, configure the backend secrets:
    ```env
    NODE_ENV=prod
-   SERVER_PORT=5000
    JWT_SECRET=your_secure_jwt_secret_key_2026
    DATABASE_URL=postgres://user:password@your-pg-host:5432/dealflow360?sslmode=require
    DB_HOST=your-pg-host
@@ -28,77 +58,17 @@ This guide details how to deploy **DealFlow360** on Vercel as two separate, inde
    EMAIL_PASSWORD=pvjz zcsd tvsg kqdx
    EMAIL_SMTP_HOST=smtp.gmail.com
    EMAIL_SMTP_PORT=587
-   FRONTEND_URL=https://your-frontend.vercel.app
    ```
-6. Click **Deploy**. Vercel will create your backend URL (e.g. `https://dealflow360-backend.vercel.app`).
-
-### Option B: Via Vercel CLI
-```bash
-cd backend
-vercel --prod
-```
-
----
-
-## 2. Deploying the Frontend (`frontend/`)
-
-### Option A: Via Vercel Web Dashboard
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard) and click **Add New... → Project**.
-2. Import your GitHub repository (`odoo-hackathon-team-561`).
-3. Set **Root Directory** to `frontend`.
-4. Framework Preset will auto-detect **Vite**.
-5. Under **Environment Variables**, set:
+4. Under **Frontend Environment Variables**, configure:
    ```env
-   VITE_SERVER_URL=https://dealflow360-backend.vercel.app/api
-   VITE_WHATSAPP_SERVER_URL=https://dealflow360-backend.vercel.app/api
+   VITE_SERVER_URL=/api
+   VITE_WHATSAPP_SERVER_URL=/api
    VITE_RAZORPAY_KEY_ID=rzp_test_ZFxDYdxbnGTEtC
    ```
-6. Click **Deploy**. Vercel will build your frontend URL (e.g. `https://dealflow360-frontend.vercel.app`).
-
-### Option B: Via Vercel CLI
-```bash
-cd frontend
-vercel --prod
-```
+5. Click **Deploy**.
 
 ---
 
-## 3. Configuration Files Reference
-
-### `backend/vercel.json`
-```json
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/index.js"
-    }
-  ]
-}
-```
-
-### `frontend/vercel.json`
-```json
-{
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
-}
-```
-
----
-
-## 4. Post-Deployment Verification
-1. Visit `https://dealflow360-backend.vercel.app/ping` → Should return `pong (DealFlow360)`.
-2. Visit `https://dealflow360-backend.vercel.app/api/health` → Should return status `OK`.
-3. Open `https://dealflow360-frontend.vercel.app` → Open browser DevTools Network tab to verify API requests hit `https://dealflow360-backend.vercel.app/api/...`.
+## 3. Benefits of Multi-Service Routing
+- **Unified Domain**: Both API requests (`/api/*`) and SPA pages (`/*`) run under the same domain, eliminating cross-origin cookie restrictions and complex CORS configurations.
+- **Zero Proxy Overhead**: Built-in Vercel Edge rewriting routes backend traffic straight to the serverless function `backend/api/index.js`.
