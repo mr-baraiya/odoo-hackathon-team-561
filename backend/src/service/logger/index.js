@@ -24,22 +24,23 @@ const consoleLogOptions = {
   format: combine(TS, loggerOptions.env === 'dev' ? colorize() : uncolorize(), consoleFormate[loggerOptions.env]),
 };
 
-// Log options for file
-const fileLogOptions = {
-  level: loggerOptions.fileLogLevel,
-  filename: 'logs/combine.log',
-  maxSize: '1m',
-  format: combine(TS, consoleFormate.prod),
-};
-
-const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const isServerless = Boolean(
+  process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION || process.env.VERCEL_ENV,
+);
 
 const activeTransports = [
   new transports.Console(consoleLogOptions),
 ];
 
-if (!isServerless && loggerOptions.fileLogLevel && loggerOptions.fileLogLevel !== 'false') {
+// File logging is only enabled in non-serverless local environments if fileLogLevel is active
+if (!isServerless && loggerOptions.env === 'dev' && loggerOptions.fileLogLevel && loggerOptions.fileLogLevel !== 'false') {
   try {
+    const fileLogOptions = {
+      level: loggerOptions.fileLogLevel,
+      filename: 'logs/combine.log',
+      maxSize: '1m',
+      format: combine(TS, consoleFormate.prod),
+    };
     activeTransports.push(new transports.File(fileLogOptions));
   } catch (err) {
     console.warn('[Logger] File transport skipped:', err.message);
@@ -48,7 +49,7 @@ if (!isServerless && loggerOptions.fileLogLevel && loggerOptions.fileLogLevel !=
 
 const logger = winston.createLogger({
   levels: config.customLevels.levels,
-  defaultMeta: { service: loggerOptions.appName },
+  defaultMeta: { service: loggerOptions.appName || 'dealflow360' },
   transports: activeTransports,
 });
 
