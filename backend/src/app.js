@@ -32,20 +32,24 @@ app.use((req, res, next) => {
 const vars = require('@/config/var');
 
 // Strict CORS Origin policy derived from FRONTEND_URL
-const allowedFrontendUrl = vars.frontendUrl || 'http://localhost:5173';
+const allowedFrontendUrl = (vars.frontendUrl || 'http://localhost:5173').replace(/\/$/, '');
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (e.g. server-to-server, mobile apps, curl/Postman)
     if (!origin) return callback(null, true);
-    if (origin === allowedFrontendUrl || allowedFrontendUrl === '*') {
+
+    const cleanOrigin = origin.replace(/\/$/, '');
+    const isVercelDomain = cleanOrigin.endsWith('.vercel.app') || cleanOrigin.includes('vercel.app');
+    const isAllowedConfig = cleanOrigin === allowedFrontendUrl || allowedFrontendUrl === '*';
+    const isLocalDev = cleanOrigin.startsWith('http://localhost:') || cleanOrigin.startsWith('http://127.0.0.1:');
+
+    if (isAllowedConfig || isVercelDomain || isLocalDev) {
       return callback(null, true);
     }
-    // In local dev mode, allow localhost origins
-    if (vars.env === 'dev' && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
-      return callback(null, true);
-    }
-    return callback(new Error(`CORS Error: Origin ${origin} is not allowed by FRONTEND_URL policy.`));
+
+    console.warn(`[CORS Blocked] Origin: ${origin} not allowed by policy (${allowedFrontendUrl})`);
+    return callback(null, false);
   },
   credentials: true,
 }));

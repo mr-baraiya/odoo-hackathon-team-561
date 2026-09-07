@@ -1,7 +1,216 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  FileText,
+  Edit3,
+  ShieldCheck,
+  Send,
+  Eye,
+  RefreshCw,
+  Package,
+  Truck,
+  Receipt,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ArrowRight,
+  Zap,
+  HelpCircle
+} from "lucide-react";
 
 export default function LandingPage() {
+  const [activeStepIndex, setActiveStepIndex] = useState(2); // Default to Discount & Approval Governance step
+  const [activePhase, setActivePhase] = useState("approvals");
+
+  // Workflow steps corresponding to user's exact flow chart
+  const workflowSteps = [
+    {
+      id: "request",
+      phase: "quoting",
+      num: "01",
+      title: "Quotation Request",
+      actor: "Customer",
+      actorBadge: "bg-blue-50 text-blue-700 border-blue-200",
+      icon: FileText,
+      shortDesc: "Customer submits RFQ or price request via Portal or WhatsApp.",
+      painPoint: "Slow response times, manual data entry, lost sales leads due to delay.",
+      solution: "Instant quote request capture via portal & automated customer profile lookup.",
+      metric: "Instant Lead Capture",
+      details: [
+        "Inbound request automatically assigned to the designated Sales Rep.",
+        "Customer pricing tier & historical purchase frequency retrieved instantly.",
+        "Initial cart items pre-checked for baseline availability."
+      ]
+    },
+    {
+      id: "quote_draft",
+      phase: "quoting",
+      num: "02",
+      title: "Official Quotation",
+      actor: "Sales Representative",
+      actorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      icon: Edit3,
+      shortDesc: "Sales Rep drafts official quote with item pricing & volume discounts.",
+      painPoint: "Inconsistent line-item pricing, unapproved custom discounts, formula errors.",
+      solution: "Standardized Quotation Builder with real-time margin impact calculation & product ceilings.",
+      metric: "100% Accurate Pricing",
+      details: [
+        "Real-time margin delta preview before quotation lock.",
+        "Automatic cross-sell & upsell co-purchase suggestions.",
+        "Enforces product tier pricing rules and baseline profit margins."
+      ]
+    },
+    {
+      id: "approval",
+      phase: "approvals",
+      num: "03",
+      title: "Discount / Approval",
+      actor: "Sales Manager",
+      actorBadge: "bg-amber-50 text-amber-700 border-amber-200",
+      icon: ShieldCheck,
+      shortDesc: "Engine evaluates blended risk score and routes for manager approval.",
+      painPoint: "Quotes stuck in email threads for days waiting for manager sign-off.",
+      solution: "Automated risk scoring routes high-discount quotes to dual-approval queues instantly.",
+      metric: "90% Faster Approvals",
+      details: [
+        "Blended risk score calculated from customer tier, total discount, and margin floor.",
+        "Low-risk quotes auto-approved; high-risk quotes routed to Sales Manager / Finance Ops.",
+        "One-click mobile/portal approval with complete audit trail."
+      ]
+    },
+    {
+      id: "send",
+      phase: "approvals",
+      num: "04",
+      title: "Send to Customer",
+      actor: "Sales Representative",
+      actorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      icon: Send,
+      shortDesc: "Official quotation delivered via interactive portal link & WhatsApp bot.",
+      painPoint: "Static PDF emails get buried, lost in spam, or lack interactive options.",
+      solution: "Dynamic, secure portal link sent instantly with real-time view tracking.",
+      metric: "Instant Delivery & Alerts",
+      details: [
+        "Customer receives interactive magic link and instant WhatsApp message.",
+        "Sales rep gets read receipts when the customer opens the quotation.",
+        "Includes breakdown of hardware, recurring services, and terms."
+      ]
+    },
+    {
+      id: "review",
+      phase: "negotiation",
+      num: "05",
+      title: "Customer Review",
+      actor: "Customer",
+      actorBadge: "bg-blue-50 text-blue-700 border-blue-200",
+      icon: Eye,
+      shortDesc: "Customer evaluates pricing and chooses Accept, Reject, or Negotiate.",
+      painPoint: "Opaque review process; reps have no visibility into customer intent.",
+      solution: "Self-service customer portal with options to Accept, Negotiate, or request callbacks.",
+      metric: "Full Pipeline Transparency",
+      details: [
+        "Customer can review itemized breakdown, taxes, and estimated delivery dates.",
+        "Three clear action pathways: Accept Quote, Counter-propose, or Reject with feedback.",
+        "Interactive WhatsApp bot supports quick review on mobile devices."
+      ]
+    },
+    {
+      id: "negotiate_loop",
+      phase: "negotiation",
+      num: "06",
+      title: "If Negotiate → Re-Approval",
+      actor: "Customer & Manager",
+      actorBadge: "bg-purple-50 text-purple-700 border-purple-200",
+      icon: RefreshCw,
+      shortDesc: "Counter-offer triggers instant risk re-evaluation and manager re-approval.",
+      painPoint: "Negotiations stall for weeks, resetting the entire sales cycle manually.",
+      solution: "Automated counter-proposal engine re-scores risk and fast-tracks manager approval.",
+      metric: "Zero Margin Leakage",
+      details: [
+        "Customer inputs counter-discount percentage or target price in portal/WhatsApp.",
+        "DealFlow360 recalculates margin impact; if valid, routes for instant manager re-approval.",
+        "Once re-approved, updated quotation is pushed back to customer in seconds."
+      ]
+    },
+    {
+      id: "order",
+      phase: "fulfillment",
+      num: "07",
+      title: "Order Conversion",
+      actor: "Sales Representative",
+      actorBadge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      icon: Package,
+      shortDesc: "Accepted quotation locks pricing and automatically creates Sales Order.",
+      painPoint: "Manual re-keying from quote to order leads to SKU & quantity discrepancies.",
+      solution: "Seamless 1-click conversion from accepted quote to binding sales order.",
+      metric: "Zero Data Entry Errors",
+      details: [
+        "Locks quotation pricing, preventing unauthorized mid-flight changes.",
+        "Reserves inventory allocations temporarily to prevent stockouts.",
+        "Triggers downstream fulfillment and accounting workflows automatically."
+      ]
+    },
+    {
+      id: "fulfillment",
+      phase: "fulfillment",
+      num: "08",
+      title: "Stock Splitting Fulfillment",
+      actor: "Finance & Operations",
+      actorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      icon: Truck,
+      shortDesc: "Greedy algorithm splits items across warehouses for optimal delivery.",
+      painPoint: "Single depot stockouts delay entire order shipment, angering clients.",
+      solution: "Multi-warehouse intelligent stock splitting prioritizes fast delivery & low freight cost.",
+      metric: "Optimal Inventory Allocation",
+      details: [
+        "Evaluates available inventory across regional depots in real time.",
+        "Generates split dispatch orders for multi-warehouse fulfillments.",
+        "Handles partial shipments and tracks remaining backorders automatically."
+      ]
+    },
+    {
+      id: "invoice",
+      phase: "fulfillment",
+      num: "09",
+      title: "Hybrid Invoice",
+      actor: "Finance & Operations",
+      actorBadge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      icon: Receipt,
+      shortDesc: "Generates unified invoice for hardware, services, and SaaS subscriptions.",
+      painPoint: "Fragmented billing for products vs recurring fees causes accounting headaches.",
+      solution: "Unified hybrid invoicing engine handles one-time items and recurring subscription lines with proration.",
+      metric: "Automated Billing Precision",
+      details: [
+        "Combines one-time physical items and recurring SaaS billing lines into one clean invoice.",
+        "Computes exact mid-cycle proration adjustments and credit notes when plans change.",
+        "Applies automated tax rules and payment terms."
+      ]
+    },
+    {
+      id: "payment",
+      phase: "fulfillment",
+      num: "10",
+      title: "Razorpay Payment Sync",
+      actor: "Finance & Customer",
+      actorBadge: "bg-teal-50 text-teal-700 border-teal-200",
+      icon: CreditCard,
+      shortDesc: "Customer settles via Razorpay; instant HMAC verification marks order PAID.",
+      painPoint: "Manual wire transfer verification causes payment reconciliation delays.",
+      solution: "Razorpay payment gateway integration with HMAC-SHA256 signature verification & automated webhooks.",
+      metric: "Instant Reconciliation",
+      details: [
+        "Generates secure Razorpay checkout order with digital invoice link.",
+        "Asynchronous webhook listens for payment completion and auto-updates invoice status to PAID.",
+        "Issues automated payment receipt and updates sales pipeline analytics instantly."
+      ]
+    }
+  ];
+
+  const currentStep = workflowSteps[activeStepIndex];
+  const StepIcon = currentStep.icon;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-indigo-500 selection:text-white">
       {/* 1. Sticky Clean Navbar */}
@@ -15,6 +224,9 @@ export default function LandingPage() {
           </div>
 
           <div className="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-600">
+            <a href="#workflow" className="hover:text-indigo-600 transition-colors">
+              Deal Lifecycle
+            </a>
             <a href="#how-it-works" className="hover:text-indigo-600 transition-colors">
               How It Works
             </a>
@@ -28,6 +240,13 @@ export default function LandingPage() {
 
           <div className="flex items-center space-x-3">
             <Link
+              to="/contact-support"
+              className="text-sm font-medium text-slate-600 hover:text-indigo-600 px-3 py-2 transition-colors inline-flex items-center space-x-1.5"
+            >
+              <HelpCircle className="w-4 h-4 text-slate-500" />
+              <span>Support</span>
+            </Link>
+            <Link
               to="/login"
               className="text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg shadow-sm transition-all inline-flex items-center"
             >
@@ -38,69 +257,310 @@ export default function LandingPage() {
       </nav>
 
       {/* 2. Hero Section */}
-      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 border-b border-slate-200/60 bg-gradient-to-b from-white to-slate-50/50">
+      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 border-b border-slate-200/60 bg-gradient-to-b from-white via-slate-50/70 to-slate-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           {/* Badge */}
-          <div className="inline-flex items-center bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold px-3.5 py-1.5 rounded-full mb-6">
-            Enterprise B2B Sales Operations Platform
+          <div className="inline-flex items-center bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold px-3.5 py-1.5 rounded-full mb-6 shadow-2xs">
+            Enterprise B2B Sales Operations & Risk Governance Platform
           </div>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6 leading-tight">
-            From Quotation to Payment — <br className="hidden sm:inline" />
-            <span className="text-indigo-600">Automatically.</span>
+            From Quotation Request to Payment — <br className="hidden sm:inline" />
+            <span className="text-indigo-600">Governed & Automated.</span>
           </h1>
 
           {/* Supporting text */}
           <p className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto mb-10 leading-relaxed font-normal">
-            DealFlow360 helps B2B teams manage quotations, negotiations, approvals, fulfillment, invoices, and payments in one intelligent platform.
+            Eliminate manual approval bottlenecks, rogue discounting, and fulfillment delays. 
+            DealFlow360 connects your entire B2B sales engine into one self-governing workflow.
           </p>
 
-          {/* Buttons */}
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-16">
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
             <Link
               to="/login"
-              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base px-8 py-3.5 rounded-xl shadow-sm transition-all inline-flex items-center justify-center"
+              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base px-8 py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all inline-flex items-center justify-center"
             >
-              Login
+              Login to Platform
             </Link>
             <a
-              href="#how-it-works"
+              href="#workflow"
               className="w-full sm:w-auto bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold text-base px-8 py-3.5 rounded-xl transition-all inline-flex items-center justify-center shadow-xs"
             >
-              See How It Works
+              Explore Deal Flowchart ↓
             </a>
           </div>
+        </div>
+      </section>
 
-          {/* Visual Deal Lifecycle Bar */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm max-w-5xl mx-auto">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-5">
-              Complete B2B Deal Lifecycle Flow
+      {/* 3. DEDICATED WORKFLOW & VALUE PROPOSITION SECTION */}
+      <section id="workflow" className="py-20 md:py-28 bg-white border-b border-slate-200/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <div className="inline-flex items-center bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full mb-3 uppercase tracking-wider">
+              Why DealFlow360 Is Essential
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 mb-4">
+              The Complete B2B Sales Workflow
+            </h2>
+            <p className="text-slate-600 text-base leading-relaxed">
+              Traditional B2B sales stall in email threads, unauthorized discounts, inventory surprises, and delayed billing. 
+              Here is how DealFlow360 seamlessly governs every step from initial request to paid invoice.
             </p>
+          </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 items-center">
-              {[
-                { step: "Quotation", color: "bg-blue-50 text-blue-700 border-blue-200" },
-                { step: "Negotiation", color: "bg-purple-50 text-purple-700 border-purple-200" },
-                { step: "Approval", color: "bg-amber-50 text-amber-700 border-amber-200" },
-                { step: "Order", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-                { step: "Fulfillment", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-                { step: "Invoice", color: "bg-sky-50 text-sky-700 border-sky-200" },
-                { step: "Payment", color: "bg-teal-50 text-teal-700 border-teal-200" },
-              ].map((item, idx) => (
-                <React.Fragment key={item.step}>
-                  <div className={`p-3 rounded-xl border font-semibold text-xs text-center transition-all ${item.color} shadow-2xs`}>
-                    <span className="block text-[10px] opacity-75 font-mono">0{idx + 1}</span>
-                    {item.step}
+          {/* Phase Filter Tabs */}
+          <div className="flex flex-wrap justify-center gap-2 mb-12">
+            {[
+              { id: "all", label: "Full 10-Step Lifecycle" },
+              { id: "quoting", label: "1. Request & Quote Creation" },
+              { id: "approvals", label: "2. Governance & Approvals" },
+              { id: "negotiation", label: "3. Portal Negotiation Loop" },
+              { id: "fulfillment", label: "4. Fulfillment & Payment" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActivePhase(tab.id)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  activePhase === tab.id
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Visual Step Stepper Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-2 mb-10 overflow-x-auto pb-2">
+            {workflowSteps.map((step, idx) => {
+              const isFiltered = activePhase !== "all" && step.phase !== activePhase;
+              const isSelected = activeStepIndex === idx;
+              const IconComp = step.icon;
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => setActiveStepIndex(idx)}
+                  className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
+                    isFiltered ? "opacity-40 grayscale" : ""
+                  } ${
+                    isSelected
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-200"
+                      : "bg-white border-slate-200 text-slate-800 hover:border-indigo-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-[10px] font-mono font-bold ${isSelected ? "text-indigo-200" : "text-slate-400"}`}>
+                      {step.num}
+                    </span>
+                    <IconComp className={`w-4 h-4 ${isSelected ? "text-white" : "text-indigo-600"}`} />
                   </div>
-                </React.Fragment>
-              ))}
+                  <p className={`font-bold text-xs leading-snug ${isSelected ? "text-white" : "text-slate-900"}`}>
+                    {step.title}
+                  </p>
+                  <span
+                    className={`mt-2 inline-block text-[9px] px-1.5 py-0.5 rounded font-semibold truncate ${
+                      isSelected
+                        ? "bg-indigo-700 text-white"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {step.actor}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Step Detailed Card (Light Theme) */}
+          <div className="bg-slate-50/90 border border-slate-200 text-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm transition-all">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Stage Info & Badges */}
+              <div className="lg:col-span-5 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200 pb-6 lg:pb-0 lg:pr-8">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600">
+                    <StepIcon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-mono font-bold text-indigo-600">STAGE {currentStep.num}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${currentStep.actorBadge}`}>
+                        Actor: {currentStep.actor}
+                      </span>
+                    </div>
+                    <h3 className="text-2xl font-extrabold text-slate-900 mt-1">
+                      {currentStep.title}
+                    </h3>
+                  </div>
+                </div>
+
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  {currentStep.shortDesc}
+                </p>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2 shadow-2xs">
+                  <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
+                    Key Performance Benefit
+                  </div>
+                  <div className="text-lg font-bold text-emerald-700 flex items-center space-x-2">
+                    <Zap className="w-5 h-5 text-emerald-600" />
+                    <span>{currentStep.metric}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Problem vs Solution */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Pain Point */}
+                  <div className="bg-rose-50/90 border border-rose-200/80 rounded-2xl p-4">
+                    <div className="flex items-center space-x-2 text-rose-700 font-bold text-xs uppercase tracking-wider mb-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      <span>Traditional Pain Point</span>
+                    </div>
+                    <p className="text-rose-950 text-xs leading-relaxed font-medium">
+                      {currentStep.painPoint}
+                    </p>
+                  </div>
+
+                  {/* DealFlow360 Solution */}
+                  <div className="bg-emerald-50/90 border border-emerald-200/80 rounded-2xl p-4">
+                    <div className="flex items-center space-x-2 text-emerald-700 font-bold text-xs uppercase tracking-wider mb-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>DealFlow360 Solution</span>
+                    </div>
+                    <p className="text-emerald-950 text-xs leading-relaxed font-medium">
+                      {currentStep.solution}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Deep-Dive Specifications */}
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    Under The Hood Execution
+                  </h4>
+                  <ul className="space-y-2 text-xs text-slate-700">
+                    {currentStep.details.map((detail, i) => (
+                      <li key={i} className="flex items-start space-x-2.5">
+                        <span className="text-indigo-600 font-bold mt-0.5">•</span>
+                        <span className="leading-relaxed font-medium">{detail}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Visual Negotiation Loop Highlight Callout */}
+          <div className="mt-12 bg-indigo-50/60 border border-indigo-100 rounded-2xl p-6 sm:p-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              <div className="md:col-span-2 space-y-2">
+                <span className="bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1 rounded-full border border-purple-200">
+                  Interactive Negotiation Engine
+                </span>
+                <h3 className="text-xl font-bold text-slate-900">
+                  What Happens When a Customer Asks for a Discount?
+                </h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Instead of endless email negotiation, DealFlow360 allows customers to submit counter-proposals in their portal or WhatsApp. 
+                  The platform re-scores risk in real time, routes to the manager for instant approval, and updates the quote seamlessly.
+                </p>
+              </div>
+              <div className="flex justify-start md:justify-end">
+                <a
+                  href="#whatsapp"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-6 py-3 rounded-xl transition-all shadow-sm inline-flex items-center space-x-1.5"
+                >
+                  <span>See WhatsApp Bot Negotiation</span>
+                  <ArrowRight className="w-4 h-4" />
+                </a>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3. How It Works Section */}
+      {/* 4. PAIN POINTS VS DEALFLOW360 PLATFORM COMPARISON */}
+      <section className="py-20 bg-slate-100/70 border-b border-slate-200/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 mb-4">
+              Why Businesses Need DealFlow360
+            </h2>
+            <p className="text-slate-600 text-base">
+              Comparing manual B2B sales operations against DealFlow360's automated platform.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Card 1 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 bg-rose-50 border border-rose-100 rounded-xl flex items-center justify-center text-rose-600 mb-4">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Uncontrolled Discounting</h3>
+              <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                Sales reps give unauthorized price cuts to close deals, eroding gross margins without management oversight.
+              </p>
+              <div className="pt-3 border-t border-slate-100 text-xs font-semibold text-indigo-600 flex items-start space-x-1.5">
+                <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <span>DealFlow360 Solution: Automated blended risk scores enforce strict discount ceilings.</span>
+              </div>
+            </div>
+
+            {/* Card 2 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 bg-amber-50 border border-amber-100 rounded-xl flex items-center justify-center text-amber-600 mb-4">
+                <Clock className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Negotiation Bottlenecks</h3>
+              <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                Counter-offers take days to review through email chains, causing hot leads to cool off or switch to competitors.
+              </p>
+              <div className="pt-3 border-t border-slate-100 text-xs font-semibold text-indigo-600 flex items-start space-x-1.5">
+                <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <span>DealFlow360 Solution: Interactive portal & WhatsApp bot fast-track manager re-approvals.</span>
+              </div>
+            </div>
+
+            {/* Card 3 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-center text-blue-600 mb-4">
+                <Package className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Stockout Delays</h3>
+              <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                Quotations are issued without checking depot inventory, leading to unfulfilled promises and cancelled orders.
+              </p>
+              <div className="pt-3 border-t border-slate-100 text-xs font-semibold text-indigo-600 flex items-start space-x-1.5">
+                <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <span>DealFlow360 Solution: Multi-warehouse greedy stock splitting optimizes fulfillment depots automatically.</span>
+              </div>
+            </div>
+
+            {/* Card 4 */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 mb-4">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Billing & Payment Friction</h3>
+              <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                Disconnected invoices and manual payment tracking waste finance team hours and cause cash flow delays.
+              </p>
+              <div className="pt-3 border-t border-slate-100 text-xs font-semibold text-indigo-600 flex items-start space-x-1.5">
+                <CheckCircle2 className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <span>DealFlow360 Solution: Hybrid SaaS invoicing with Razorpay HMAC payment sync.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. How It Works Section */}
       <section id="how-it-works" className="py-20 md:py-28 bg-white border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -181,7 +641,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 4. Why DealFlow360 Section */}
+      {/* 6. Why DealFlow360 Section */}
       <section id="why-us" className="py-20 md:py-28 bg-slate-50 border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -229,7 +689,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. WhatsApp Section */}
+      {/* 7. WhatsApp Section */}
       <section id="whatsapp" className="py-20 md:py-28 bg-white border-b border-slate-200/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -261,7 +721,7 @@ export default function LandingPage() {
             {/* Right WhatsApp Realistic Preview Card */}
             <div className="bg-slate-100 border border-slate-200 rounded-2xl p-6 shadow-sm max-w-md mx-auto lg:mx-0 w-full">
               {/* WhatsApp Header */}
-              <div className="bg-emerald-700 text-white p-4.5 rounded-xl flex items-center justify-between mb-4 shadow-xs">
+              <div className="bg-emerald-700 text-white p-4 text-sm rounded-xl flex items-center justify-between mb-4 shadow-xs">
                 <div className="flex items-center space-x-3">
                   <div className="w-9 h-9 bg-white text-emerald-700 font-bold rounded-full flex items-center justify-center text-xs">
                     DF
@@ -313,31 +773,38 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 6. Final CTA Section */}
+      {/* 8. Final CTA Section */}
       <section className="py-20 bg-gradient-to-b from-slate-900 to-slate-950 text-white text-center">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
-            Ready to manage your next deal?
+            Ready to streamline your sales workflow?
           </h2>
           <p className="text-slate-300 text-base sm:text-lg mb-8 max-w-2xl mx-auto">
-            Bring your sales workflow together with DealFlow360.
+            Bring your entire B2B deal process from quotation to payment into one intelligent platform.
           </p>
 
-          <div className="flex justify-center">
+          <div className="flex justify-center items-center space-x-4">
             <Link
               to="/login"
               className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-base px-8 py-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all inline-flex items-center"
             >
               Login to DealFlow360
             </Link>
+            <Link
+              to="/contact-support"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-base px-6 py-3.5 rounded-xl transition-all inline-flex items-center space-x-2"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>Contact Support</span>
+            </Link>
           </div>
           <p className="text-xs text-slate-500 mt-4">
-            Admin-controlled access &bull; Enterprise RBAC Security
+            Admin-controlled access &bull; Enterprise RBAC Security &bull; 24/7 Dedicated Support
           </p>
         </div>
       </section>
 
-      {/* 7. Footer */}
+      {/* 9. Footer */}
       <footer className="bg-white border-t border-slate-200 py-12 text-slate-600 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2 space-y-3">
@@ -346,7 +813,7 @@ export default function LandingPage() {
               <span className="font-bold text-slate-900 text-base">DealFlow360</span>
             </div>
             <p className="text-slate-500 max-w-sm leading-relaxed">
-              Managing the complete B2B sales lifecycle from quotation to payment in one intelligent, risk-governed platform.
+              Managing the complete B2B sales lifecycle from quotation request to payment in one intelligent, risk-governed platform.
             </p>
           </div>
 
@@ -355,6 +822,11 @@ export default function LandingPage() {
               Navigation
             </h4>
             <ul className="space-y-2 font-medium">
+              <li>
+                <a href="#workflow" className="hover:text-indigo-600 transition-colors">
+                  Deal Lifecycle Workflow
+                </a>
+              </li>
               <li>
                 <a href="#how-it-works" className="hover:text-indigo-600 transition-colors">
                   How It Works
@@ -371,6 +843,11 @@ export default function LandingPage() {
                 </a>
               </li>
               <li>
+                <Link to="/contact-support" className="text-indigo-600 hover:text-indigo-700 font-semibold transition-colors flex items-center space-x-1">
+                  <span>Contact Support</span>
+                </Link>
+              </li>
+              <li>
                 <Link to="/login" className="hover:text-indigo-600 transition-colors">
                   Login
                 </Link>
@@ -380,7 +857,7 @@ export default function LandingPage() {
 
           <div>
             <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider mb-3">
-              Platform
+              Platform & Support
             </h4>
             <ul className="space-y-2 font-medium">
               <li>
@@ -388,6 +865,11 @@ export default function LandingPage() {
               </li>
               <li>
                 <span className="text-slate-500">Risk Governance Engine</span>
+              </li>
+              <li>
+                <Link to="/contact-support" className="hover:text-indigo-600 transition-colors">
+                  Customer Help Desk
+                </Link>
               </li>
             </ul>
           </div>
@@ -401,4 +883,3 @@ export default function LandingPage() {
     </div>
   );
 }
-

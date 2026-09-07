@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import apiClient from "../../services/apiClient";
 
 export default function ContactSupportPage() {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export default function ContactSupportPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim() || !formData.email.trim() || !formData.subject.trim() || !formData.message.trim()) {
       toast.error("Please fill in all required fields.");
@@ -28,13 +29,18 @@ export default function ContactSupportPage() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      const generatedTicket = `TICKET-${Math.floor(100000 + Math.random() * 900000)}`;
+    try {
+      const response = await apiClient.post('/support/ticket', formData);
+      const generatedTicket = response.ticketId || `TICKET-${Math.floor(100000 + Math.random() * 900000)}`;
       setTicketId(generatedTicket);
       setIsSubmitted(true);
-      toast.success(`Support ticket ${generatedTicket} submitted successfully!`);
-    }, 800);
+      toast.success(`Support ticket ${generatedTicket} submitted successfully! Notification sent.`);
+    } catch (err) {
+      console.error("Support ticket submission error:", err);
+      toast.error(err.message || "Failed to submit support ticket. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -181,19 +187,26 @@ export default function ContactSupportPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-xs transition-all text-sm disabled:opacity-50"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-xs transition-all text-sm disabled:opacity-50 flex items-center justify-center space-x-2"
                 >
-                  {isSubmitting ? "Submitting Ticket..." : "Submit Support Ticket"}
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Sending Email & Submitting Ticket...</span>
+                    </>
+                  ) : (
+                    <span>Submit Support Ticket</span>
+                  )}
                 </button>
               </form>
             ) : (
               <div className="py-8 text-center space-y-4">
                 <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
-                  OK
+                  ✓
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">Ticket Created Successfully</h3>
+                <h3 className="text-xl font-bold text-slate-900">Ticket Created & Email Dispatched</h3>
                 <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                  Your support request <span className="font-mono font-bold text-indigo-600">{ticketId}</span> has been routed to our B2B technical operations team. A confirmation has been sent to <span className="font-semibold text-slate-800">{formData.email}</span>.
+                  Your support request <span className="font-mono font-bold text-indigo-600">{ticketId}</span> has been dispatched to our operations team and a receipt has been sent to <span className="font-semibold text-slate-800">{formData.email}</span>.
                 </p>
                 <div className="pt-4 flex justify-center space-x-3">
                   <button
@@ -227,10 +240,10 @@ export default function ContactSupportPage() {
                 Send queries directly to our technical support team.
               </p>
               <a
-                href="mailto:support@dealflow360.com"
+                href="mailto:vvbaraiya32@gmail.com"
                 className="text-xs font-bold text-indigo-600 hover:underline block font-mono bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-center"
               >
-                support@dealflow360.com
+                vvbaraiya32@gmail.com
               </a>
             </div>
 

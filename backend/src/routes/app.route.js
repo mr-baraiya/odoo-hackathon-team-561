@@ -32,12 +32,15 @@ const salesRepRoutes = require('./salesRep.route');
 const salesManagerRoutes = require('./salesManager.route');
 const financeOpsRoutes = require('./financeOps.route');
 const healthRoutes = require('./health.route');
+const supportRoutes = require('./support.route');
 
 const router = express.Router();
 
 // Modular API Routes with distinct prefix namespaces
 router.use('/auth', authRoutes);
 router.use('/health', healthRoutes);
+router.use('/support', supportRoutes);
+router.use('/dealflow/support', supportRoutes);
 router.use('/users', usersRoutes);
 router.use('/customers', customersRoutes);
 router.use('/customer-tiers', tiersRoutes);
