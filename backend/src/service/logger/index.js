@@ -1,6 +1,6 @@
 const winston = require('winston');
 const config = require('./config');
-const { loggerOptions } = require('@/config/var');
+const { loggerOptions } = require('../../config/var');
 
 const { format, transports } = winston;
 const { combine, timestamp, printf, colorize, uncolorize } = format;

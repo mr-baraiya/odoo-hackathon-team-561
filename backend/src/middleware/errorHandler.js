@@ -1,4 +1,4 @@
-const { ValidationError } = require('@/utils/validationHelper');
+const { ValidationError } = require('../utils/validationHelper');
 const ServerError = require('../utils/serverError');
 const Logger = require('../service/logger');
 const { errorCodes } = require('../config/constant');

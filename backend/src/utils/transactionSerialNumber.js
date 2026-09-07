@@ -1,4 +1,4 @@
-const { indiaFyWindowSql } = require('@/utils/indiaFinancialYear');
+const { indiaFyWindowSql } = require('./indiaFinancialYear');
 
 const PURCHASE_TYPE = 'purchase';
 

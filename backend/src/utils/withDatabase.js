@@ -1,4 +1,4 @@
-const Database = require('@/service/database');
+const Database = require('../service/database');
 
 /**
  * Middleware to handle database connection and release automatically

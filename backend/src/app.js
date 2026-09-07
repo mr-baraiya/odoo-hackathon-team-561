@@ -3,12 +3,12 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const qs = require('qs');
-const constant = require('@/config/constant');
-const Logger = require('@/service/logger');
-const errorHandler = require('@/middleware/errorHandler');
-const requestId = require('@/middleware/requestId');
-const apiRoutes = require('@/routes/app.route');
-const { getDocsHtml } = require('@/utils/docsHtml');
+const constant = require('./config/constant');
+const Logger = require('./service/logger');
+const errorHandler = require('./middleware/errorHandler');
+const requestId = require('./middleware/requestId');
+const apiRoutes = require('./routes/app.route');
+const { getDocsHtml } = require('./utils/docsHtml');
 
 
 const app = express();
@@ -29,7 +29,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const vars = require('@/config/var');
+const vars = require('./config/var');
 
 // Strict CORS Origin policy derived from FRONTEND_URL
 const allowedFrontendUrl = (vars.frontendUrl || 'http://localhost:5173').replace(/\/$/, '');
@@ -58,7 +58,7 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 
-const healthRoutes = require('@/routes/health.route');
+const healthRoutes = require('./routes/health.route');
 
 app.get('/ping', (req, res) => { res.send('pong (DealFlow360)'); });
 app.use('/health', healthRoutes);
