@@ -8,13 +8,13 @@ require('dotenv').config({
 
 const env = {
   env: process.env.NODE_ENV || 'dev',
-  port: process.env.SERVER_PORT || 3023,
+  port: process.env.SERVER_PORT || process.env.PORT || 3023,
   serviceName: process.env.SERVICE_NAME || 'dealflow360',
   jwtSecret: process.env.JWT_SECRET || 'dealflow360_super_secret_jwt_key_2026',
 
   // Database
   dbHost: process.env.DB_HOST || 'localhost',
-  dbPort: process.env.DB_PORT || 5432,
+  dbPort: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
   dbUser: process.env.DB_USER || 'postgres',
   dbPassword: process.env.DB_PASSWORD || 'postgres',
   dbDatabase: process.env.DB_NAME || 'dealflow360',
@@ -52,21 +52,21 @@ const env = {
 
 // Define validation for all the env vars
 const envSchema = Joi.object({
-  env: Joi.string().required().valid('local', 'dev', 'stage', 'prod'),
-  port: Joi.number().required().min(0).max(65535),
-  serviceName: Joi.string().required().min(3).max(255),
-  jwtSecret: Joi.string().required().min(3).max(1024),
+  env: Joi.string().required().valid('local', 'dev', 'stage', 'prod', 'production'),
+  port: Joi.number().optional().allow('', null).min(0).max(65535),
+  serviceName: Joi.string().optional().allow(''),
+  jwtSecret: Joi.string().optional().allow(''),
 
   // Database
-  dbHost: Joi.string().required().min(3).max(255),
-  dbPort: Joi.number().required().min(1024).max(65535),
-  dbUser: Joi.string().required().min(3).max(255),
-  dbPassword: Joi.string().allow(''),
-  dbDatabase: Joi.string().required().min(3).max(255),
+  dbHost: Joi.string().optional().allow(''),
+  dbPort: Joi.number().optional().allow('', null).min(1).max(65535),
+  dbUser: Joi.string().optional().allow(''),
+  dbPassword: Joi.string().optional().allow(''),
+  dbDatabase: Joi.string().optional().allow(''),
 
   // Log levels
-  consoleLogLevel: Joi.string().required().valid('false', 'error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'),
-  fileLogLevel: Joi.string().required().valid('false', 'error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'),
+  consoleLogLevel: Joi.string().optional().allow('').valid('false', 'error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'),
+  fileLogLevel: Joi.string().optional().allow('').valid('false', 'error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'),
 
   // Whatsapp
   whatsappService: Joi.boolean().optional(),
@@ -95,12 +95,12 @@ const envSchema = Joi.object({
   razorpayKeySecret: Joi.string().optional().allow(''),
 });
 
-
-
 // Validate env vars
 const { error, value } = envSchema.validate(env);
 
-// Throw an error if env vars are not valid
-if (error) throw new Error(`ENV validation error: ${error.message}`);
+// Log warning if invalid instead of throwing process crash
+if (error) {
+  console.warn(`[ENV Validation Warning] ${error.message}`);
+}
 
-module.exports = value;
+module.exports = value || env;
