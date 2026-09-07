@@ -29,6 +29,10 @@ const dbConfig = database.connectionString
 
 const pool = new Pool(dbConfig);
 
+pool.on('error', (err) => {
+  console.error('[PostgreSQL Pool Warning]', err.message);
+});
+
 types.setTypeParser(1700, (val) => parseFloat(val));
 
 function convertNamedQueryToPositional(sqlStmt, params) {
