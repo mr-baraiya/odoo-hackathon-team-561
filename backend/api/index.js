@@ -1,11 +1,15 @@
-const path = require('path');
-const moduleAlias = require('module-alias');
-
-// Explicitly register alias '@' to point to 'src' directory
-moduleAlias.addAlias('@', path.join(__dirname, '../src'));
-
 const app = require('../src/app');
 
 module.exports = (req, res) => {
-  return app(req, res);
+  try {
+    return app(req, res);
+  } catch (err) {
+    console.error('[Vercel Invocation Error]', err);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Internal Server Error', message: err.message }));
+    }
+  }
 };
+

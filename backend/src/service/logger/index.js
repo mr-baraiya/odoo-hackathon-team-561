@@ -5,35 +5,60 @@ const { loggerOptions } = require('../../config/var');
 const { format, transports } = winston;
 const { combine, timestamp, printf, colorize, uncolorize } = format;
 
-// Add custom levels and colors
-winston.addColors(config.customLevels.colors);
+// Add custom levels and colors safely
+if (config && config.customLevels && config.customLevels.colors) {
+  winston.addColors(config.customLevels.colors);
+}
 
-// Time Stamp formate for logs
+// Time Stamp format for logs
 const TS = timestamp({ format: 'YYYY-MM-DD HH:mm:ss' });
 
-// Log formate for console (different for dev and prod)
-const consoleFormate = {
-  dev: printf((info) => `[${info.timestamp}] ${info.level} : ${info.message} ${info.stack ? `\n ${info.stack}` : ''}`),
-  prod: printf((info) => `[${info.timestamp}]  {"level": "${info.level}", "service":"${info.service}", "message":"${info.message.trim()}", "stack": "${info.stack ? info.stack : ''}"}`),
+const formatMessage = (msg) => {
+  if (msg === null || msg === undefined) return '';
+  if (typeof msg === 'string') return msg.trim();
+  if (typeof msg === 'object') {
+    try {
+      return JSON.stringify(msg);
+    } catch (e) {
+      return String(msg);
+    }
+  }
+  return String(msg).trim();
 };
+
+// Log format for console (handles both dev and production environments safely)
+const consoleFormate = {
+  dev: printf((info) => `[${info.timestamp}] ${info.level} : ${formatMessage(info.message)}${info.stack ? `\n ${info.stack}` : ''}`),
+  prod: printf((info) => `[${info.timestamp}] {"level": "${info.level}", "service":"${info.service || 'dealflow360'}", "message":${JSON.stringify(formatMessage(info.message))}, "stack": "${info.stack || ''}"}`),
+};
+
+const currentEnv = (loggerOptions.env || 'dev').toLowerCase();
+const selectedFormat = (currentEnv === 'dev' || currentEnv === 'local') ? consoleFormate.dev : consoleFormate.prod;
 
 // Log options for console
 const consoleLogOptions = {
-  level: loggerOptions.consoleLogLevel,
-  handleExceptions: true,
-  format: combine(TS, loggerOptions.env === 'dev' ? colorize() : uncolorize(), consoleFormate[loggerOptions.env]),
+  level: loggerOptions.consoleLogLevel || 'info',
+  handleExceptions: false,
+  format: combine(TS, currentEnv === 'dev' ? colorize() : uncolorize(), selectedFormat),
 };
 
 const isServerless = Boolean(
-  process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION || process.env.VERCEL_ENV,
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  process.env.VERCEL_URL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.NOW_REGION ||
+  (process.cwd() && (process.cwd().includes('/var/task') || process.cwd().includes('/tmp'))) ||
+  (__dirname && __dirname.includes('/var/task'))
 );
 
 const activeTransports = [
   new transports.Console(consoleLogOptions),
 ];
 
-// File logging is only enabled in non-serverless local environments if fileLogLevel is active
-if (!isServerless && loggerOptions.env === 'dev' && loggerOptions.fileLogLevel && loggerOptions.fileLogLevel !== 'false') {
+// File logging is strictly disabled in serverless / Vercel read-only environments
+if (!isServerless && process.env.NODE_ENV !== 'production' && loggerOptions.fileLogLevel && loggerOptions.fileLogLevel !== 'false') {
   try {
     const fileLogOptions = {
       level: loggerOptions.fileLogLevel,
@@ -48,9 +73,11 @@ if (!isServerless && loggerOptions.env === 'dev' && loggerOptions.fileLogLevel &
 }
 
 const logger = winston.createLogger({
-  levels: config.customLevels.levels,
+  levels: config.customLevels ? config.customLevels.levels : undefined,
   defaultMeta: { service: loggerOptions.appName || 'dealflow360' },
   transports: activeTransports,
+  exitOnError: false,
 });
 
 module.exports = logger;
+

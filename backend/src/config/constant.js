@@ -4,7 +4,16 @@ const errorCodes = require('./errorCode');
 
 const os = require('os');
 
-const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  process.env.VERCEL_URL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.NOW_REGION ||
+  (process.cwd() && (process.cwd().includes('/var/task') || process.cwd().includes('/tmp'))) ||
+  (__dirname && __dirname.includes('/var/task'))
+);
 const baseDir = isServerless ? os.tmpdir() : path.join(__dirname, '../../');
 
 const fileStoragePath = isServerless ? path.join(baseDir, 'files') : path.join(__dirname, '../../files');
