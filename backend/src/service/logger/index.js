@@ -32,13 +32,24 @@ const fileLogOptions = {
   format: combine(TS, consoleFormate.prod),
 };
 
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+const activeTransports = [
+  new transports.Console(consoleLogOptions),
+];
+
+if (!isServerless && loggerOptions.fileLogLevel && loggerOptions.fileLogLevel !== 'false') {
+  try {
+    activeTransports.push(new transports.File(fileLogOptions));
+  } catch (err) {
+    console.warn('[Logger] File transport skipped:', err.message);
+  }
+}
+
 const logger = winston.createLogger({
   levels: config.customLevels.levels,
   defaultMeta: { service: loggerOptions.appName },
-  transports: [
-    new transports.Console(consoleLogOptions),
-    new transports.File(fileLogOptions),
-  ],
+  transports: activeTransports,
 });
 
 module.exports = logger;
