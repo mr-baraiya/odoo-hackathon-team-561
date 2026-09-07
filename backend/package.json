@@ -4,7 +4,7 @@
   "description": "DealFlow360 - Self Governing Sales Operations Platform Backend API",
   "main": "./src/index.js",
   "scripts": {
-    "test": "node ../scripts/verify_dealflow.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "dbmate": "dbmate --migrations-dir ./db/migrations up",
