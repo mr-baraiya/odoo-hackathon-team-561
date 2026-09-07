@@ -21,8 +21,8 @@ import {
 } from "lucide-react";
 
 export default function LandingPage() {
-  const [activeStepIndex, setActiveStepIndex] = useState(2); // Default to Discount & Approval Governance step
-  const [activePhase, setActivePhase] = useState("approvals");
+  const [activeStepIndex, setActiveStepIndex] = useState(0); // Default to Step 1: Quotation Request
+  const [activePhase, setActivePhase] = useState("quoting");
 
   // Workflow steps corresponding to user's exact flow chart
   const workflowSteps = [
