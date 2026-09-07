@@ -1,10 +1,10 @@
 require('module-alias/register');
 
 const http = require('http');
-const vars = require('@/config/var');
-const app = require('@/app');
-const Logger = require('@/service/logger');
-const Socket = require('@/service/socket');
+const vars = require('./config/var');
+const app = require('./app');
+const Logger = require('./service/logger');
+const Socket = require('./service/socket');
 
 const { port, env } = vars;
 

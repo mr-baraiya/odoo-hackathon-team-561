@@ -1,8 +1,8 @@
 const fsp = require('fs').promises;
 const fs = require('fs');
 const path = require('path');
-const constant = require('@/config/constant');
-const ServerError = require('@/utils/serverError');
+const constant = require('../../config/constant');
+const ServerError = require('../../utils/serverError');
 
 exports.upload = async (filePath) => {
   const isFileExists = fs.existsSync(filePath);

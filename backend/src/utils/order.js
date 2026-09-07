@@ -1,4 +1,4 @@
-const Database = require('@/service/database');
+const Database = require('../service/database');
 
 /**
  * Generates the next serial number with decimal suffix for a recreated order

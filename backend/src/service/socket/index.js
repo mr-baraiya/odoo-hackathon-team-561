@@ -1,9 +1,9 @@
 const { Server } = require('socket.io');
-const Logger = require('@/service/logger');
+const Logger = require('../logger');
 const initHandlers = require('./initHandlers');
-const ServerError = require('@/utils/serverError');
-const Database = require('@/service/database');
-const Token = require('@/utils/jwtToken');
+const ServerError = require('../../utils/serverError');
+const Database = require('../database');
+const Token = require('../../utils/jwtToken');
 
 let socketIo = null;
 
