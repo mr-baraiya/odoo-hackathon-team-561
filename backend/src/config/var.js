@@ -6,11 +6,13 @@ module.exports = {
   jwtSecret: env.jwtSecret,
 
   database: {
+    connectionString: env.databaseUrl,
     host: env.dbHost,
     port: env.dbPort,
     user: env.dbUser,
     password: env.dbPassword,
     database: env.dbDatabase,
+    ssl: env.dbSsl,
   },
 
   loggerOptions: {

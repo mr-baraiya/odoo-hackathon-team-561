@@ -13,11 +13,13 @@ const env = {
   jwtSecret: process.env.JWT_SECRET || 'dealflow360_super_secret_jwt_key_2026',
 
   // Database
+  databaseUrl: process.env.DATABASE_URL || '',
   dbHost: process.env.DB_HOST || 'localhost',
   dbPort: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
   dbUser: process.env.DB_USER || 'postgres',
   dbPassword: process.env.DB_PASSWORD || 'postgres',
   dbDatabase: process.env.DB_NAME || 'dealflow360',
+  dbSsl: process.env.DB_SSL === 'true' || Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=require')),
 
   // Log levels
   consoleLogLevel: process.env.CONSOLE_LOG_LEVEL || 'info',
@@ -58,11 +60,13 @@ const envSchema = Joi.object({
   jwtSecret: Joi.string().optional().allow(''),
 
   // Database
+  databaseUrl: Joi.string().optional().allow(''),
   dbHost: Joi.string().optional().allow(''),
   dbPort: Joi.number().optional().allow('', null).min(1).max(65535),
   dbUser: Joi.string().optional().allow(''),
   dbPassword: Joi.string().optional().allow(''),
   dbDatabase: Joi.string().optional().allow(''),
+  dbSsl: Joi.boolean().optional(),
 
   // Log levels
   consoleLogLevel: Joi.string().optional().allow('').valid('false', 'error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'),

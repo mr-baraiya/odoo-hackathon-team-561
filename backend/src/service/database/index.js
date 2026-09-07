@@ -3,19 +3,29 @@ const Parameter = require('./parameter');
 
 const { database } = require('../../config/var');
 
-const dbConfig = {
-  user: database.user,
-  password: database.password,
-  host: database.host,
-  database: database.database,
-  port: database.port,
-  max: 80,
-  ssl: false,
-  connectionTimeoutMillis: 30000,
-  idleTimeoutMillis: 900000,
-  statement_timeout: 30000,
-  query_timeout: 30000,
-};
+const isSslRequired = Boolean(database.ssl || (database.connectionString && database.connectionString.includes('sslmode=require')));
+
+const dbConfig = database.connectionString
+  ? {
+      connectionString: database.connectionString,
+      ssl: isSslRequired ? { rejectUnauthorized: false } : false,
+      max: 30,
+      connectionTimeoutMillis: 30000,
+      idleTimeoutMillis: 900000,
+    }
+  : {
+      user: database.user,
+      password: database.password,
+      host: database.host,
+      database: database.database,
+      port: database.port,
+      max: 80,
+      ssl: isSslRequired ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 30000,
+      idleTimeoutMillis: 900000,
+      statement_timeout: 30000,
+      query_timeout: 30000,
+    };
 
 const pool = new Pool(dbConfig);
 
