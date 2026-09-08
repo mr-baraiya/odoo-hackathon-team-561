@@ -37,7 +37,7 @@ export default function SalesRepCommunicationTab() {
     try {
       const emailToUse = selectedCust.primary_contact_email || 'mayankpathar49@gmail.com';
       toast.loading('Generating magic login link...', { id: 'magic' });
-      const res = await apiClient.post('/auth/magic-link', { email: emailToUse, skipNotify: true });
+      const res = await apiClient.post('/auth/magic-link', { email: emailToUse, skipNotify: true, frontendUrl: window.location.origin });
       const baseUrl = (import.meta.env.VITE_FRONTEND_URL || window.location.origin).replace(/\/$/, '');
       const magicUrl = res?.magicUrl || res?.data?.magicUrl || `${baseUrl}/m/${res?.shortCode || res?.data?.shortCode || 'token'}`;
       toast.dismiss('magic');

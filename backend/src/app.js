@@ -42,9 +42,10 @@ app.use(cors({
     const cleanOrigin = origin.replace(/\/$/, '');
     const isVercelDomain = cleanOrigin.endsWith('.vercel.app') || cleanOrigin.includes('vercel.app');
     const isAllowedConfig = cleanOrigin === allowedFrontendUrl || allowedFrontendUrl === '*';
-    const isLocalDev = cleanOrigin.startsWith('http://localhost:') || cleanOrigin.startsWith('http://127.0.0.1:');
+    const isLocalDev = cleanOrigin.startsWith('http://localhost:') || cleanOrigin.startsWith('http://127.0.0.1:') || /^http:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1]))/.test(cleanOrigin);
+    const isDevEnv = (process.env.NODE_ENV || 'dev') !== 'production' && (process.env.NODE_ENV || 'dev') !== 'prod';
 
-    if (isAllowedConfig || isVercelDomain || isLocalDev) {
+    if (isAllowedConfig || isVercelDomain || isLocalDev || isDevEnv) {
       return callback(null, true);
     }
 

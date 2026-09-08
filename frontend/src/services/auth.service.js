@@ -25,7 +25,8 @@ export const authService = {
 
   // Forgot password request
   async forgotPassword(email) {
-    return await apiClient.post("/auth/forgot-password", { email });
+    const frontendUrl = window.location.origin;
+    return await apiClient.post("/auth/forgot-password", { email, frontendUrl });
   },
 
   // Reset password using token
@@ -35,7 +36,8 @@ export const authService = {
 
   // Request passwordless magic link
   async requestMagicLink(email) {
-    return await apiClient.post("/auth/magic-link", { email });
+    const frontendUrl = window.location.origin;
+    return await apiClient.post("/auth/magic-link", { email, frontendUrl });
   },
 
   // Verify magic link token and complete auto-login

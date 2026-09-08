@@ -138,24 +138,96 @@ router.get('/me', authenticateJWT, (req, res) => {
   return res.json({ user: req.user, customer: customerInfo });
 });
 
+// Helper to dynamically resolve frontend application URL for reset & magic links
+function getFrontendUrl(req) {
+  // 1. Check if explicitly provided in request payload (e.g. from frontend client)
+  if (req && req.body) {
+    if (req.body.frontendUrl) return String(req.body.frontendUrl).replace(/\/$/, '');
+    if (req.body.baseUrl) return String(req.body.baseUrl).replace(/\/$/, '');
+  }
+
+  // 2. Derive from HTTP Origin header (browser fetch/XHR)
+  const origin = req ? req.get('origin') : null;
+  if (origin && origin !== 'null') {
+    return origin.replace(/\/$/, '');
+  }
+
+  // 3. Derive from HTTP Referer header
+  const referer = req ? req.get('referer') : null;
+  if (referer) {
+    try {
+      const parsed = new URL(referer);
+      if (parsed.origin && parsed.origin !== 'null') {
+        return parsed.origin.replace(/\/$/, '');
+      }
+    } catch (e) {}
+  }
+
+  // 4. Fallback to process.env.FRONTEND_URL or vars.frontendUrl if non-localhost
+  const envUrl = process.env.FRONTEND_URL || vars.frontendUrl;
+  if (envUrl && envUrl !== 'http://localhost:5173') {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  // 5. Default fallback
+  return (envUrl || 'http://localhost:5173').replace(/\/$/, '');
+}
+
 // 4. POST /api/auth/forgot-password
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
+  const cleanEmail = (email || '').trim().toLowerCase();
   
-  if (!email || !emailRegex.test(email.trim())) {
+  if (!cleanEmail || !emailRegex.test(cleanEmail)) {
     return res.status(400).json({ message: 'Please provide a valid email address.' });
   }
 
-  const user = seed.USERS.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+  let user = null;
+
+  try {
+    const db = await getConnection();
+    try {
+      user = await db.queryOne('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [cleanEmail]);
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[forgot-password] DB query warning:', err.message);
+  }
+
+  if (!user) {
+    user = seed.USERS.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
+  }
+
   if (!user) {
     return res.status(404).json({ message: 'No registered account found with this email address.' });
   }
 
   const resetToken = `reset_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-  user.reset_token = resetToken;
-  user.reset_token_expires = new Date(Date.now() + 3600 * 1000).toISOString();
+  const resetExpires = new Date(Date.now() + 3600 * 1000).toISOString();
 
-  const frontendUrl = (vars.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  user.reset_token = resetToken;
+  user.reset_token_expires = resetExpires;
+
+  try {
+    const db = await getConnection();
+    try {
+      await db.queryOne(
+        'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE LOWER(email) = LOWER($3)',
+        [resetToken, resetExpires, cleanEmail]
+      );
+    } finally {
+      db.release();
+    }
+  } catch (e) {}
+
+  const seedUser = seed.USERS.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
+  if (seedUser) {
+    seedUser.reset_token = resetToken;
+    seedUser.reset_token_expires = resetExpires;
+  }
+
+  const frontendUrl = getFrontendUrl(req);
   const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
   const htmlContent = forgotPasswordEmail(resetUrl);
 
@@ -175,17 +247,58 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // 5. POST /api/auth/reset-password
-router.post('/reset-password', (req, res) => {
+router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
-  const user = seed.USERS.find((u) => u.reset_token === token);
+  if (!token) {
+    return res.status(400).json({ message: 'Reset token is required.' });
+  }
+
+  let user = null;
+
+  try {
+    const db = await getConnection();
+    try {
+      user = await db.queryOne('SELECT * FROM users WHERE reset_token = $1', [token]);
+    } finally {
+      db.release();
+    }
+  } catch (e) {}
+
+  if (!user) {
+    user = seed.USERS.find((u) => u.reset_token === token);
+  }
 
   if (!user) {
     return res.status(400).json({ message: 'Invalid or expired reset token.' });
   }
 
-  user.password_hash = bcrypt.hashSync(newPassword || 'Darshan@1234', 10);
+  if (user.reset_token_expires && new Date(user.reset_token_expires) < new Date()) {
+    return res.status(400).json({ message: 'Password reset link has expired. Please request a new password reset.' });
+  }
+
+  const passwordHash = bcrypt.hashSync(newPassword || 'Darshan@1234', 10);
+  user.password_hash = passwordHash;
   delete user.reset_token;
   delete user.reset_token_expires;
+
+  try {
+    const db = await getConnection();
+    try {
+      await db.queryOne(
+        'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2 OR reset_token = $3',
+        [passwordHash, user.id, token]
+      );
+    } finally {
+      db.release();
+    }
+  } catch (e) {}
+
+  const seedUser = seed.USERS.find((u) => u.reset_token === token || u.id === user.id);
+  if (seedUser) {
+    seedUser.password_hash = passwordHash;
+    delete seedUser.reset_token;
+    delete seedUser.reset_token_expires;
+  }
 
   return res.json({ message: 'Password reset successfully. You can now login with your new password.' });
 });
@@ -376,7 +489,7 @@ router.post('/magic-link', async (req, res) => {
     user.magic_link_expires_at = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   }
 
-  const frontendUrl = (vars.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const frontendUrl = getFrontendUrl(req);
   const magicUrl = `${frontendUrl}/m/${shortCode}`;
   const whatsappUrl = magicUrl;
 

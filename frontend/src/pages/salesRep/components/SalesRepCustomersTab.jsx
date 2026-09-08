@@ -223,7 +223,7 @@ export default function SalesRepCustomersTab({ customers = [], onRefresh }) {
     try {
       const emailToUse = cust.primary_contact_email || 'mayankpathar49@gmail.com';
       console.log(`%c[MAGIC-LINK] Generating magic link for ${cust.company_name} (${emailToUse})...`, 'background: #8b5cf6; color: white; font-weight: bold; padding: 2px 6px;');
-      const res = await apiClient.post('/auth/magic-link', { email: emailToUse, skipNotify: true });
+      const res = await apiClient.post('/auth/magic-link', { email: emailToUse, skipNotify: true, frontendUrl: window.location.origin });
       const baseUrl = (import.meta.env.VITE_FRONTEND_URL || window.location.origin).replace(/\/$/, '');
       const magicUrl = res?.magicUrl || res?.data?.magicUrl || `${baseUrl}/m/${res?.shortCode || res?.data?.shortCode || 'token'}`;
 
