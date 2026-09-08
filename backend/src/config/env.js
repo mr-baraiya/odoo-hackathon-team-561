@@ -45,7 +45,7 @@ const env = {
   emailSmtpPort: process.env.EMAIL_SMTP_PORT ? parseInt(process.env.EMAIL_SMTP_PORT, 10) : 587,
 
   // Frontend URL
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  frontendUrl: (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, ''),
 
   // Razorpay
   razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',

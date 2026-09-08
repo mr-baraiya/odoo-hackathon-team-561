@@ -58,7 +58,7 @@ export default function CustomerHeader({
     <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         {/* Left: Customer Info from DB */}
-        <div className="flex items-start space-x-4">
+        <div className="flex flex-col sm:flex-row items-start space-y-3 sm:space-y-0 sm:space-x-4">
           <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-2xl flex items-center justify-center font-extrabold text-xl shadow-md shrink-0">
             {companyName.substring(0, 2).toUpperCase()}
           </div>

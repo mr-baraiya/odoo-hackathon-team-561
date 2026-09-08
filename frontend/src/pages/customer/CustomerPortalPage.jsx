@@ -261,7 +261,7 @@ export default function CustomerPortalPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16 selection:bg-indigo-500 selection:text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-6 space-y-4 sm:space-y-6">
         {/* CUSTOMER HEADER — fully from DB */}
         <CustomerHeader
           customer={customer}
@@ -272,7 +272,7 @@ export default function CustomerPortalPage() {
         />
 
         {/* NAVIGATION TABS */}
-        <div className="border-b border-slate-200 flex items-center space-x-1 overflow-x-auto no-scrollbar">
+        <div className="border-b border-slate-200 flex items-center space-x-1 overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (

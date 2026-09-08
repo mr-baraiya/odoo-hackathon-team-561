@@ -88,21 +88,21 @@ const renderTabIcon = (tabId) => {
 
 export default function AdminSidebar({ tabsList, activeTab, handleTabClick, dealHealth }) {
   return (
-    <aside className="w-full md:w-64 bg-white border-r border-slate-200 p-4 space-y-6 md:fixed md:top-16 md:bottom-0 md:left-0 md:overflow-y-auto z-30">
-      <nav className="space-y-1">
+    <aside className="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-2 sm:p-3 md:p-4 md:fixed md:top-16 md:bottom-0 md:left-0 md:overflow-y-auto z-30 shrink-0">
+      <nav className="flex md:flex-col overflow-x-auto whitespace-nowrap gap-1.5 md:gap-1 scrollbar-none pb-1 md:pb-0">
         {tabsList.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
-              className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
+              className={`text-left px-3 sm:px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer shrink-0 ${
                 isActive
                   ? 'bg-indigo-600 text-white shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <div className="flex items-center space-x-2.5">
+              <div className="flex items-center space-x-2">
                 {renderTabIcon(tab.id)}
                 <span>{tab.label}</span>
               </div>

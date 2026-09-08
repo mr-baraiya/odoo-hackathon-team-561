@@ -31,6 +31,7 @@ import {
   BarChart3,
   Bell,
   RefreshCw,
+  Menu,
 } from 'lucide-react';
 
 export default function SalesRepPage() {
@@ -97,8 +98,24 @@ export default function SalesRepPage() {
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-50 text-slate-900 flex flex-col lg:flex-row">
+      {/* Mobile Top Sub-Header for Sidebar Drawer Toggle */}
+      <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-2xs">
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          className="flex items-center space-x-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
+        >
+          <Menu className="w-4 h-4 text-indigo-600" />
+          <span>Workspace Menu</span>
+        </button>
+        <span className="text-xs font-bold text-slate-700 capitalize">
+          {tabs.find((t) => t.id === activeTab)?.label || activeTab}
+        </span>
+      </div>
+
       {/* Left Navigation Sidebar */}
       <SalesRepSidebar
         summary={summary}
@@ -110,10 +127,12 @@ export default function SalesRepPage() {
         healthAlertsCount={summary?.health_alerts?.length || 0}
         activeTab={activeTab}
         onTabSelect={handleNavigateTab}
+        isOpenMobile={isMobileOpen}
+        onCloseMobile={() => setIsMobileOpen(false)}
       />
 
       {/* Right Main Page Viewport */}
-      <main className="flex-1 min-w-0 p-6 space-y-6">
+      <main className="flex-1 min-w-0 p-3.5 sm:p-6 lg:p-8 space-y-6">
             {/* Tab Content Components */}
             {loading ? (
               <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-500 text-xs font-semibold shadow-xs flex flex-col items-center justify-center space-y-2">

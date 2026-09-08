@@ -155,7 +155,7 @@ router.post('/forgot-password', async (req, res) => {
   user.reset_token = resetToken;
   user.reset_token_expires = new Date(Date.now() + 3600 * 1000).toISOString();
 
-  const frontendUrl = vars.frontendUrl || 'http://localhost:5173';
+  const frontendUrl = (vars.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
   const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
   const htmlContent = forgotPasswordEmail(resetUrl);
 
@@ -376,9 +376,9 @@ router.post('/magic-link', async (req, res) => {
     user.magic_link_expires_at = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   }
 
-  const frontendUrl = vars.frontendUrl || 'http://localhost:5173';
+  const frontendUrl = (vars.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
   const magicUrl = `${frontendUrl}/m/${shortCode}`;
-  const whatsappUrl = magicUrl.replace('localhost', '127.0.0.1');
+  const whatsappUrl = magicUrl;
 
   let mailResult = null;
   let whatsappResult = null;
@@ -400,7 +400,7 @@ Hello ${recipientName},
 
 Tap the link below to sign in directly to your Customer Portal:
 
-http://127.0.0.1:5173/m/${shortCode}
+${magicUrl}
 
 This link is valid for 24 hours.`;
 
