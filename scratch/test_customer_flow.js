@@ -1,5 +1,4 @@
 const { getConnection } = require('../backend/src/service/database');
-const seed = require('../backend/src/db/dealflow360_seed');
 const { validateDiscountBoundary } = require('../backend/src/utils/discountValidator');
 
 async function testCustomerFlow() {

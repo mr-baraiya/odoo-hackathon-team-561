@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
@@ -17,15 +16,29 @@ let APPROVAL_RULES_MEMORY = [
 ];
 
 // GET /api/approvals
-router.get('/', authenticateJWT, (req, res) => {
-  const allApprovals = seed.QUOTATIONS.flatMap((q) => q.approvals || []);
-  res.json(allApprovals);
+router.get('/', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const approvals = await db.queryAll('SELECT * FROM quotation_approvals ORDER BY created_at DESC');
+    db.release();
+    return res.json(approvals || []);
+  } catch (err) {
+    console.warn('[approvals.route] DB query error:', err.message);
+    return res.json([]);
+  }
 });
 
 // GET /api/approvals/pending
-router.get('/pending', authenticateJWT, (req, res) => {
-  const pendingQuotes = seed.QUOTATIONS.filter((q) => q.status === 'pending_approval');
-  res.json(pendingQuotes);
+router.get('/pending', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const pendingQuotes = await db.queryAll("SELECT * FROM quotations WHERE status::text = 'pending_approval' ORDER BY created_at DESC");
+    db.release();
+    return res.json(pendingQuotes || []);
+  } catch (err) {
+    console.warn('[approvals.route] DB query error:', err.message);
+    return res.json([]);
+  }
 });
 
 // --- APPROVAL RULES (POSTGRESQL DB CONNECTED) ---
@@ -175,10 +188,16 @@ router.delete('/rules/:id', authenticateJWT, authorizeRoles('admin'), async (req
 });
 
 // GET /api/approvals/:id
-router.get('/:id', authenticateJWT, (req, res) => {
-  const approval = seed.QUOTATIONS.flatMap((q) => q.approvals || []).find((a) => a.id === req.params.id);
-  if (!approval) return res.status(404).json({ message: 'Approval step not found' });
-  res.json(approval);
+router.get('/:id', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const approval = await db.queryOne('SELECT * FROM quotation_approvals WHERE id::text = $1', [req.params.id]);
+    db.release();
+    if (!approval) return res.status(404).json({ message: 'Approval step not found' });
+    return res.json(approval);
+  } catch (err) {
+    return res.status(404).json({ message: 'Approval step not found' });
+  }
 });
 
 // POST /api/approvals/:id/approve
@@ -236,13 +255,6 @@ router.post('/:id/approve', authenticateJWT, authorizeRoles('sales_manager', 'fi
     }
     db.release();
 
-    if (Array.isArray(seed.QUOTATIONS)) {
-      const seedQuote = seed.QUOTATIONS.find((q) => q.id === id || q.quote_number === id || (q.approvals || []).some((a) => a.id === id));
-      if (seedQuote) {
-        seedQuote.status = finalStatus;
-      }
-    }
-
     const msg = finalStatus === 'approved'
       ? 'Quotation fully approved! Dispatched for customer sending.'
       : 'Approval step signed off successfully. Pending remaining approval chain step (Finance/Ops).';
@@ -288,13 +300,6 @@ router.post('/:id/reject', authenticateJWT, authorizeRoles('sales_manager', 'fin
     }
     db.release();
 
-    if (Array.isArray(seed.QUOTATIONS)) {
-      const seedQuote = seed.QUOTATIONS.find((q) => q.id === id || q.quote_number === id || (q.approvals || []).some((a) => a.id === id));
-      if (seedQuote) {
-        seedQuote.status = 'rejected';
-      }
-    }
-
     return res.json({ message: 'Quotation rejected by manager.', status: 'rejected' });
   } catch (err) {
     console.warn('[approvals.route] DB rejection update warning:', err.message);
@@ -335,13 +340,6 @@ router.post('/:id/return', authenticateJWT, authorizeRoles('sales_manager', 'fin
       );
     }
     db.release();
-
-    if (Array.isArray(seed.QUOTATIONS)) {
-      const seedQuote = seed.QUOTATIONS.find((q) => q.id === id || q.quote_number === id || (q.approvals || []).some((a) => a.id === id));
-      if (seedQuote) {
-        seedQuote.status = 'draft';
-      }
-    }
 
     return res.json({ message: 'Quotation returned to Sales Representative for revision. Status set to draft.', status: 'draft' });
   } catch (err) {

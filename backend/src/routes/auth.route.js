@@ -2,7 +2,6 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const vars = require('../config/var');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT } = require('../middleware/auth.middleware');
 const sendEmail = require('../utils/sendEmail');
@@ -27,9 +26,9 @@ router.post('/login', async (req, res) => {
     if (magicToken) {
       console.log(`[API POST /api/auth/login] Processing magic link token authentication...`);
       const stored = MAGIC_TOKENS_STORE.get(magicToken);
-      let customerUser = stored ? stored.user : seed.USERS.find((u) => u && u.magic_link_token === magicToken);
+      let customerUser = stored ? stored.user : null;
       if (customerUser) {
-        const customerInfo = stored ? stored.customer : seed.CUSTOMERS.find((c) => c && c.id === customerUser.customer_id) || {};
+        const customerInfo = stored ? stored.customer : {};
         const token = jwt.sign(
           { id: customerUser.id, email: customerUser.email, role: customerUser.role || 'customer' },
           vars.jwtSecret || 'dealflow360_secret',
@@ -53,12 +52,7 @@ router.post('/login', async (req, res) => {
         db.release();
       }
     } catch (err) {
-      console.warn('[API POST /api/auth/login] DB login query failed, using seed fallback:', err.message);
-    }
-
-    if (!user) {
-      user = seed.USERS.find((u) => u && u.email && u.email.trim().toLowerCase() === cleanEmail);
-      if (user) console.log(`[API POST /api/auth/login] User record retrieved from seed data: ${user.email}`);
+      console.warn('[API POST /api/auth/login] DB login query failed:', err.message);
     }
 
     let isValid = false;
@@ -100,9 +94,6 @@ router.post('/login', async (req, res) => {
           }
         } catch (e) {}
       }
-      if (!customerInfo && user.role === 'customer') {
-        customerInfo = seed.CUSTOMERS.find((c) => c && c.id === user.customer_id) || {};
-      }
       const token = jwt.sign(
         { id: user.id, email: user.email, role: user.role },
         vars.jwtSecret || 'dealflow360_secret',
@@ -127,13 +118,20 @@ router.post('/logout', (req, res) => {
 });
 
 // 3. GET /api/auth/me
-router.get('/me', authenticateJWT, (req, res) => {
+router.get('/me', authenticateJWT, async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ message: 'Not authenticated' });
   }
   let customerInfo = null;
   if (req.user.customer_id) {
-    customerInfo = seed.CUSTOMERS.find((c) => c.id === req.user.customer_id) || null;
+    try {
+      const db = await getConnection();
+      try {
+        customerInfo = await db.queryOne('SELECT * FROM customers WHERE id = $1', [req.user.customer_id]);
+      } finally {
+        db.release();
+      }
+    } catch (e) {}
   }
   return res.json({ user: req.user, customer: customerInfo });
 });
@@ -196,10 +194,6 @@ router.post('/forgot-password', async (req, res) => {
   }
 
   if (!user) {
-    user = seed.USERS.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
-  }
-
-  if (!user) {
     return res.status(404).json({ message: 'No registered account found with this email address.' });
   }
 
@@ -220,12 +214,6 @@ router.post('/forgot-password', async (req, res) => {
       db.release();
     }
   } catch (e) {}
-
-  const seedUser = seed.USERS.find((u) => u.email && u.email.trim().toLowerCase() === cleanEmail);
-  if (seedUser) {
-    seedUser.reset_token = resetToken;
-    seedUser.reset_token_expires = resetExpires;
-  }
 
   const frontendUrl = getFrontendUrl(req);
   const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
@@ -265,10 +253,6 @@ router.post('/reset-password', async (req, res) => {
   } catch (e) {}
 
   if (!user) {
-    user = seed.USERS.find((u) => u.reset_token === token);
-  }
-
-  if (!user) {
     return res.status(400).json({ message: 'Invalid or expired reset token.' });
   }
 
@@ -293,20 +277,23 @@ router.post('/reset-password', async (req, res) => {
     }
   } catch (e) {}
 
-  const seedUser = seed.USERS.find((u) => u.reset_token === token || u.id === user.id);
-  if (seedUser) {
-    seedUser.password_hash = passwordHash;
-    delete seedUser.reset_token;
-    delete seedUser.reset_token_expires;
-  }
-
   return res.json({ message: 'Password reset successfully. You can now login with your new password.' });
 });
 
 // 6. POST /api/auth/change-password
-router.post('/change-password', authenticateJWT, (req, res) => {
+router.post('/change-password', authenticateJWT, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  const user = seed.USERS.find((u) => u.id === req.user.id);
+  if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+
+  let user = null;
+  try {
+    const db = await getConnection();
+    try {
+      user = await db.queryOne('SELECT * FROM users WHERE id = $1 OR LOWER(email) = LOWER($2)', [req.user.id, req.user.email]);
+    } finally {
+      db.release();
+    }
+  } catch (e) {}
 
   if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -338,7 +325,16 @@ router.post('/change-password', authenticateJWT, (req, res) => {
     }
   }
 
-  user.password_hash = bcrypt.hashSync(newPassword, 10);
+  const newHash = bcrypt.hashSync(newPassword, 10);
+  try {
+    const db = await getConnection();
+    try {
+      await db.queryOne('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, user.id]);
+    } finally {
+      db.release();
+    }
+  } catch (e) {}
+
   return res.json({ message: 'Password updated successfully.' });
 });
 
@@ -369,14 +365,7 @@ async function resolveMagicToken(magicToken) {
     // Token string might not be standard JWT, continue
   }
 
-  // 3. Check seed users
-  const seedUser = seed.USERS.find((u) => u.magic_link_token === magicToken || u.id === magicToken || u.email === magicToken);
-  if (seedUser) {
-    const seedCust = seed.CUSTOMERS.find((c) => c.id === seedUser.customer_id) || {};
-    return { user: seedUser, customer: seedCust };
-  }
-
-  // 4. Check PostgreSQL DB
+  // 3. Check PostgreSQL DB
   try {
     const db = await getConnection();
     const user = await db.queryOne('SELECT * FROM users WHERE magic_link_token = $1 OR id::text = $1 OR LOWER(email) = LOWER($1)', [magicToken]);
@@ -390,17 +379,7 @@ async function resolveMagicToken(magicToken) {
     console.warn('[resolveMagicToken] DB query warning:', e.message);
   }
 
-  // 5. Customer fallback
-  const fallbackUser = seed.USERS.find((u) => u.role === 'customer') || {
-    id: '00000000-0000-0000-0000-000000000104',
-    full_name: 'Jane Doe',
-    email: 'jane.doe@acme.com',
-    role: 'customer',
-    customer_id: '00000000-0000-0000-0000-000000000301',
-  };
-  const fallbackCust = seed.CUSTOMERS.find((c) => c.id === fallbackUser.customer_id) || { company_name: 'Acme Corporation' };
-
-  return { user: fallbackUser, customer: fallbackCust };
+  return null;
 }
 
 // 7. POST /api/auth/magic-link (Dispatches to BOTH Email & WhatsApp with standard template)
@@ -431,14 +410,6 @@ router.post('/magic-link', async (req, res) => {
     db.release();
   } catch (err) {
     console.warn('[magic-link] DB lookup warning:', err.message);
-  }
-
-  // 2. Fallback to seed data
-  if (!user) {
-    user = seed.USERS.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
-  }
-  if (!customer) {
-    customer = seed.CUSTOMERS.find((c) => (c.primary_contact_email || '').toLowerCase() === cleanEmail) || {};
   }
 
   if (!user && !customer?.company_name) {
@@ -693,28 +664,6 @@ router.post('/register-customer', async (req, res) => {
     console.error('[register-customer] DB registration error:', err);
   }
 
-  // Update in-memory seed store
-  let seedUser = seed.USERS.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
-  if (!seedUser) {
-    seedUser = {
-      id: `usr_${Date.now()}`,
-      email: cleanEmail,
-      full_name: fullName,
-      role: 'customer',
-      password_hash: passwordHash,
-      is_active: true,
-      email_otp: otp,
-      otp_expires_at: otpExpiresAt,
-      is_email_verified: false,
-    };
-    seed.USERS.push(seedUser);
-  } else {
-    seedUser.password_hash = passwordHash;
-    seedUser.email_otp = otp;
-    seedUser.otp_expires_at = otpExpiresAt;
-    seedUser.is_email_verified = false;
-  }
-
   // Dispatch OTP Email
   const htmlContent = emailVerifyOtpTemplate(otp);
   const mailResult = await sendEmail({
@@ -782,15 +731,7 @@ router.post('/verify-email-otp', async (req, res) => {
   }
 
   if (!user) {
-    user = seed.USERS.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
-    if (!user) return res.status(404).json({ message: 'User account not found.' });
-
-    if (user.email_otp && user.email_otp !== cleanOtp) {
-      return res.status(400).json({ message: 'Invalid verification code.' });
-    }
-    user.is_email_verified = true;
-    user.email_otp = null;
-    user.otp_expires_at = null;
+    return res.status(404).json({ message: 'User account not found.' });
   }
 
   user.is_email_verified = true;
@@ -839,12 +780,6 @@ router.post('/resend-email-otp', async (req, res) => {
     }
   } catch (err) {
     console.warn('[resend-email-otp] DB update warning:', err.message);
-  }
-
-  const seedUser = seed.USERS.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
-  if (seedUser) {
-    seedUser.email_otp = otp;
-    seedUser.otp_expires_at = otpExpiresAt;
   }
 
   const htmlContent = emailVerifyOtpTemplate(otp);

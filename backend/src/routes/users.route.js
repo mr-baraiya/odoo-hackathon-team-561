@@ -1,7 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
@@ -27,9 +26,9 @@ router.get('/', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finan
       db.release();
     }
   } catch (err) {
-    console.warn('[API GET /users] DB query failed, returning seed fallback:', err.message);
+    console.warn('[API GET /users] DB query failed:', err.message);
   }
-  return res.json(seed.USERS);
+  return res.json([]);
 });
 
 // GET /api/users/:id
@@ -55,9 +54,7 @@ router.get('/:id', authenticateJWT, async (req, res) => {
     console.warn(`[API GET /users/${id}] DB query failed:`, err.message);
   }
 
-  const user = seed.USERS.find((u) => u.id === id || u.email === id);
-  if (!user) return res.status(404).json({ message: 'User not found' });
-  return res.json(user);
+  return res.status(404).json({ message: 'User not found' });
 });
 
 const isUUID = (str) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
@@ -107,12 +104,7 @@ router.post('/', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
     console.warn('[API POST /users] DB pre-check warning:', checkErr.message);
   }
 
-  // Also check seed USERS array for email uniqueness
-  const seedExisting = seed.USERS.find((u) => u && u.email && u.email.toLowerCase() === cleanEmail);
-  if (seedExisting) {
-    console.warn(`[API POST /users] Duplicate email rejected from seed: ${cleanEmail}`);
-    return res.status(400).json({ message: `An account with email "${cleanEmail}" already exists.` });
-  }
+
 
   let createdUser = null;
   let dbError = null;
@@ -171,8 +163,7 @@ router.post('/', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
     return res.status(400).json({ message: `Failed to create user in database: ${dbError || 'Email already exists.'}` });
   }
 
-  // Also sync to seed.USERS array in memory
-  seed.USERS.push(createdUser);
+
 
   console.log('[API POST /users] Successfully created and returning user:', createdUser);
   return res.status(201).json(createdUser);
@@ -251,17 +242,7 @@ router.put('/:id', authenticateJWT, authorizeRoles('admin', 'sales_manager'), as
     console.error('[API PUT /users] PostgreSQL connection error:', err.message);
   }
 
-  // Sync in-memory seed data
-  const user = seed.USERS.find((u) => u.id === id || (email && u.email === email));
-  if (user) {
-    if (full_name !== undefined) user.full_name = full_name;
-    if (email !== undefined) user.email = email;
-    if (phone_number !== undefined) user.phone_number = phone_number;
-    if (role !== undefined) user.role = role;
-    if (is_active !== undefined) user.is_active = is_active;
-    if (validCustomerId !== undefined) user.customer_id = validCustomerId;
-    if (!updatedUser) updatedUser = user;
-  }
+
 
   return res.json(updatedUser || { message: 'User updated successfully.' });
 });
@@ -299,10 +280,7 @@ router.post('/:id/reset-password', authenticateJWT, authorizeRoles('admin'), asy
     console.warn(`[API POST /users/${id}/reset-password] DB update failed:`, err.message);
   }
 
-  const seedUser = seed.USERS.find((u) => u.id === id);
-  if (seedUser) {
-    seedUser.password_hash = passHash;
-  }
+
 
   return res.json({ message: 'User password reset successfully.', user: updatedUser });
 });
@@ -335,11 +313,7 @@ router.patch('/:id/status', authenticateJWT, authorizeRoles('admin'), async (req
     console.warn('[API PATCH /users/status] PostgreSQL status update failed:', err.message);
   }
 
-  const user = seed.USERS.find((u) => u.id === id);
-  if (user) {
-    user.is_active = is_active !== undefined ? is_active : !user.is_active;
-    if (!updatedUser) updatedUser = user;
-  }
+
 
   return res.json({ message: 'User status updated successfully', user: updatedUser });
 });
@@ -365,11 +339,7 @@ router.delete('/:id', authenticateJWT, authorizeRoles('admin'), async (req, res)
     console.warn('[API DELETE /users] PostgreSQL delete failed:', err.message);
   }
 
-  const index = seed.USERS.findIndex((u) => u.id === id);
-  if (index !== -1) {
-    const deleted = seed.USERS.splice(index, 1)[0];
-    if (!deletedUser) deletedUser = deleted;
-  }
+
 
   return res.json({ message: 'User deleted successfully from database.', user: deletedUser });
 });

@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
@@ -69,8 +68,8 @@ router.get('/deal-health/alerts', authenticateJWT, async (req, res) => {
 
     return res.json(alerts);
   } catch (err) {
-    console.warn('DB error on GET /deal-health/alerts, falling back to seed:', err.message);
-    return res.json(seed.DEAL_HEALTH_ALERTS || []);
+    console.warn('DB error on GET /deal-health/alerts:', err.message);
+    return res.json([]);
   }
 });
 

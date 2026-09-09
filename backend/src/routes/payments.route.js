@@ -2,7 +2,6 @@ const express = require('express');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
 const vars = require('../config/var');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
 const router = express.Router();
@@ -86,9 +85,7 @@ router.post('/create-order', authenticateJWT, authorizeRoles('customer', 'sales_
     }
 
     if (!payableAmount) {
-      const quote = seed.QUOTATIONS.find((q) => `inv_${q.id}` === invoice_id || q.id === invoice_id || q.quote_number === invoice_id);
-      payableAmount = Number(quote?.total_amount || 1000);
-      customerName = quote?.customer_name || customerName;
+      payableAmount = 1000;
     }
 
     const amountInPaisa = Math.round(payableAmount * 100);
@@ -253,13 +250,7 @@ router.post('/verify', authenticateJWT, authorizeRoles('customer', 'sales_rep', 
     payment.razorpay_signature = razorpay_signature || 'verified_dev_signature';
     payment.paid_at = new Date().toISOString();
 
-    // Mark corresponding invoice as PAID in seed quotations
     const targetInvoiceId = invoice_id || payment.invoice_id;
-    const quote = seed.QUOTATIONS.find((q) => `inv_${q.id}` === targetInvoiceId || q.id === targetInvoiceId);
-    if (quote) {
-      quote.status = 'fulfilled';
-      quote.payment_status = 'paid';
-    }
 
     return res.json({
       success: true,
@@ -324,12 +315,7 @@ router.post('/webhook', (req, res) => {
       payment.razorpay_payment_id = razorpayPaymentId;
       payment.paid_at = new Date().toISOString();
 
-      // Update invoice status
-      const quote = seed.QUOTATIONS.find((q) => `inv_${q.id}` === payment.invoice_id || q.id === payment.invoice_id);
-      if (quote) {
-        quote.status = 'fulfilled';
-        quote.payment_status = 'paid';
-      }
+
     } else if (event === 'payment.failed') {
       payment.status = 'failed';
     }

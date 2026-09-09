@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 const { getConnection } = require('../service/database');
 
@@ -28,17 +27,14 @@ router.get('/', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finan
         ORDER BY c.created_at DESC, c.company_name ASC
       `);
       console.log(`[API GET /api/customers] Successfully loaded ${rows ? rows.length : 0} customer rows from PostgreSQL database.`);
-      if (rows && rows.length > 0) {
-        return res.json(rows);
-      }
+      return res.json(rows || []);
     } finally {
       db.release();
     }
   } catch (err) {
     console.error('[API GET /api/customers] ERROR querying PostgreSQL DB:', err.message);
+    return res.json([]);
   }
-  console.log(`[API GET /api/customers] Falling back to seed CUSTOMERS data (${seed.CUSTOMERS.length} records).`);
-  return res.json(seed.CUSTOMERS);
 });
 
 // GET /api/customers/:id/quotations
@@ -55,16 +51,15 @@ router.get('/:id/quotations', authenticateJWT, authorizeRoles('admin', 'sales_ma
           WHERE q.customer_id = $1
           ORDER BY q.created_at DESC
         `, [id]);
-        if (quotes && quotes.length > 0) return res.json(quotes);
+        return res.json(quotes || []);
       }
     } finally {
       db.release();
     }
   } catch (err) {
-    console.warn('[API GET /customers/:id/quotations] DB error, using seed:', err.message);
+    console.warn('[API GET /customers/:id/quotations] DB error:', err.message);
   }
-  const quotes = seed.QUOTATIONS.filter((q) => q.customer_id === id || q.customer_id === `30${id.slice(-1)}`);
-  res.json(quotes);
+  res.json([]);
 });
 
 // GET /api/customers/:id/orders
@@ -81,16 +76,15 @@ router.get('/:id/orders', authenticateJWT, authorizeRoles('admin', 'sales_manage
           WHERE q.customer_id = $1 AND q.status::text IN ('confirmed', 'in_fulfillment', 'fulfilled')
           ORDER BY q.created_at DESC
         `, [id]);
-        if (orders && orders.length > 0) return res.json(orders);
+        return res.json(orders || []);
       }
     } finally {
       db.release();
     }
   } catch (err) {
-    console.warn('[API GET /customers/:id/orders] DB error, using seed:', err.message);
+    console.warn('[API GET /customers/:id/orders] DB error:', err.message);
   }
-  const orders = seed.QUOTATIONS.filter((q) => (q.customer_id === id || q.customer_id === `30${id.slice(-1)}`) && ['confirmed', 'in_fulfillment', 'fulfilled'].includes(q.status));
-  res.json(orders);
+  res.json([]);
 });
 
 // GET /api/customers/:id/invoices
@@ -123,17 +117,9 @@ router.get('/:id/invoices', authenticateJWT, authorizeRoles('admin', 'sales_mana
       db.release();
     }
   } catch (err) {
-    console.warn('[API GET /customers/:id/invoices] DB error, using seed:', err.message);
+    console.warn('[API GET /customers/:id/invoices] DB error:', err.message);
   }
-  const invoices = seed.QUOTATIONS.filter((q) => q.customer_id === id || q.customer_id === `30${id.slice(-1)}`).map((q) => ({
-    invoice_id: `INV-${q.id}`,
-    quotation_id: q.id,
-    quote_number: q.quote_number,
-    amount_due: q.total_amount,
-    status: q.status === 'fulfilled' ? 'PAID' : 'PENDING',
-    issued_at: q.created_at || '2026-01-01',
-  }));
-  res.json(invoices);
+  res.json([]);
 });
 
 // GET /api/customers/:id
@@ -168,12 +154,7 @@ router.get('/:id', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'fi
     console.error(`[API GET /api/customers/${id}] DB query failed:`, err.message);
   }
 
-  const customer = seed.CUSTOMERS.find((c) => c.id === id || c.id === `30${id.slice(-1)}` || id.includes(c.id));
-  if (!customer) {
-    console.warn(`[API GET /api/customers/${id}] Customer NOT found in DB or seed.`);
-    return res.status(404).json({ message: 'Customer not found' });
-  }
-  return res.json(customer);
+  return res.status(404).json({ message: 'Customer not found' });
 });
 
 // POST /api/customers - Save to PostgreSQL DB
@@ -248,26 +229,8 @@ router.post('/', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'sale
     }
   } catch (err) {
     console.error('[API POST /api/customers] ERROR inserting into PostgreSQL DB:', err.stack || err.message);
+    return res.status(500).json({ message: 'Failed to create customer record in database.' });
   }
-
-  console.warn('[API POST /api/customers] Using seed fallback due to DB error.');
-  const newId = `30${seed.CUSTOMERS.length + 1}`;
-  const tier = seed.CUSTOMER_TIERS.find((t) => t.id === tier_id || t.code === tier_code) || seed.CUSTOMER_TIERS[1];
-  const newCustomer = {
-    id: newId,
-    company_name,
-    tier_id: tier.id,
-    tier_code: tier.code,
-    currency_code: currency_code || 'USD',
-    billing_address: billing_address || '',
-    shipping_address: shipping_address || '',
-    primary_contact_name: primary_contact_name || '',
-    primary_contact_email: primary_contact_email || '',
-    primary_contact_phone: primary_contact_phone || '',
-    sales_rep_id: sales_rep_id || req.user?.id || '00000000-0000-0000-0000-000000000101',
-  };
-  seed.CUSTOMERS.unshift(newCustomer);
-  return res.status(201).json(newCustomer);
 });
 
 // PUT /api/customers/:id - Update in PostgreSQL DB
@@ -345,16 +308,7 @@ router.put('/:id', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'sa
     console.error(`[API PUT /api/customers/${id}] ERROR updating in PostgreSQL DB:`, err.stack || err.message);
   }
 
-  console.warn(`[API PUT /api/customers/${id}] DB update failed or non-UUID id, attempting seed array update...`);
-  const customer = seed.CUSTOMERS.find((c) => c.id === id || c.id === `30${id.slice(-1)}` || id.includes(c.id));
-  if (!customer) {
-    console.error(`[API PUT /api/customers/${id}] Customer not found in DB or seed.`);
-    return res.status(404).json({ message: 'Customer not found' });
-  }
-
-  Object.assign(customer, req.body);
-  console.log(`[API PUT /api/customers/${id}] Updated in-memory seed customer:`, customer.company_name);
-  return res.json(customer);
+  return res.status(404).json({ message: 'Customer not found' });
 });
 
 // DELETE /api/customers/:id - Delete from PostgreSQL DB
@@ -380,15 +334,7 @@ router.delete('/:id', authenticateJWT, authorizeRoles('admin'), async (req, res)
     console.error(`[API DELETE /api/customers/${id}] ERROR deleting from PostgreSQL DB:`, err.stack || err.message);
   }
 
-  const idx = seed.CUSTOMERS.findIndex((c) => c.id === id || c.id === `30${id.slice(-1)}` || id.includes(c.id));
-  if (idx === -1) {
-    console.error(`[API DELETE /api/customers/${id}] Customer not found for deletion.`);
-    return res.status(404).json({ message: 'Customer not found' });
-  }
-
-  const deleted = seed.CUSTOMERS.splice(idx, 1)[0];
-  console.log(`[API DELETE /api/customers/${id}] Deleted from in-memory seed:`, deleted.company_name);
-  return res.json({ message: 'Customer deleted successfully', customer: deleted });
+  return res.status(404).json({ message: 'Customer not found' });
 });
 
 module.exports = router;

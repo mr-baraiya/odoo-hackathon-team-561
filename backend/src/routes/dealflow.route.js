@@ -9,75 +9,129 @@ const { calculateBlendedRiskScore } = require('../service/riskScoreEngine');
 const { calculateFulfillmentSplits } = require('../service/fulfillmentEngine');
 const { generateHybridBillingSchedule, calculateMidCycleProration, triggerSubscriptionCreditNote } = require('../service/billingEngine');
 const { getUpsellSuggestions } = require('../service/upsellEngine');
-const seed = require('../db/dealflow360_seed');
+const { getConnection } = require('../service/database');
 
 const bcrypt = require('bcryptjs');
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
 // --- 1. AUTH & PORTAL ACCESS ---
-router.post('/auth/login', (req, res) => {
-  const { email, password, magicToken } = req.body;
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { email, password, magicToken } = req.body;
+    const db = await getConnection();
 
-  if (magicToken) {
-    const customerUser = seed.USERS.find((u) => u.magic_link_token === magicToken);
-    if (customerUser) {
-      const customerInfo = seed.CUSTOMERS.find((c) => c.id === customerUser.customer_id) || {};
-      return res.json({ token: `jwt_${customerUser.id}`, user: customerUser, customer: customerInfo });
+    let user = null;
+    if (magicToken) {
+      user = await db.queryOne(`SELECT * FROM users WHERE magic_link_token = $1 LIMIT 1`, [magicToken]);
+    } else if (email) {
+      user = await db.queryOne(`SELECT * FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`, [email]);
     }
-  }
 
-  const user = seed.USERS.find((u) => u.email.toLowerCase() === (email || '').toLowerCase());
-  let isValid = false;
-  if (user) {
-    if (!password) {
-      isValid = true;
-    } else if (user.password_hash && user.password_hash.startsWith('$2b$')) {
-      isValid = bcrypt.compareSync(password, user.password_hash) || password === 'Darshan@1234' || password === 'password123';
-    } else {
-      isValid = user.password_hash === password || password === 'Darshan@1234' || password === 'password123';
+    let isValid = false;
+    if (user) {
+      if (magicToken || !password) {
+        isValid = true;
+      } else if (user.password_hash && user.password_hash.startsWith('$2b$')) {
+        isValid = bcrypt.compareSync(password, user.password_hash) || password === 'Darshan@1234' || password === 'password123';
+      } else {
+        isValid = user.password_hash === password || password === 'Darshan@1234' || password === 'password123';
+      }
     }
-  }
 
-  if (isValid) {
-    let customerInfo = null;
-    if (user.role === 'customer') {
-      customerInfo = seed.CUSTOMERS.find((c) => c.id === user.customer_id) || {};
+    if (isValid) {
+      let customerInfo = null;
+      if (user.customer_id) {
+        customerInfo = await db.queryOne(`SELECT * FROM customers WHERE id = $1`, [user.customer_id]);
+      }
+      db.release();
+      return res.json({ token: `jwt_${user.id}`, user, customer: customerInfo });
     }
-    return res.json({ token: `jwt_${user.id}`, user, customer: customerInfo });
-  }
 
-  return res.status(401).json({ message: 'Invalid credentials or magic link token.' });
+    db.release();
+    return res.status(401).json({ message: 'Invalid credentials or magic link token.' });
+  } catch (err) {
+    console.warn('DB error on /auth/login:', err.message);
+    return res.status(500).json({ message: 'Authentication error' });
+  }
 });
 
-router.get('/auth/users', (req, res) => {
-  res.json(seed.USERS);
+router.get('/auth/users', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM users ORDER BY created_at ASC');
+    db.release();
+    res.json(rows);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // --- 2. CONFIGURATION DATA (PRODUCTS, PRICE LISTS, TIERS, WAREHOUSES) ---
-router.get('/products', (req, res) => {
-  res.json(seed.PRODUCTS);
+router.get('/products', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM products ORDER BY name ASC');
+    db.release();
+    res.json(rows);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
-router.get('/categories', (req, res) => {
-  res.json(seed.PRODUCT_CATEGORIES);
+router.get('/categories', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM product_categories ORDER BY name ASC');
+    db.release();
+    res.json(rows);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
-router.get('/customer-tiers', (req, res) => {
-  res.json(seed.CUSTOMER_TIERS);
+router.get('/customer-tiers', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM customer_tiers ORDER BY default_discount_ceiling_pct DESC');
+    db.release();
+    res.json(rows);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
-router.get('/customers', (req, res) => {
-  res.json(seed.CUSTOMERS);
+router.get('/customers', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM customers ORDER BY company_name ASC');
+    db.release();
+    res.json(rows);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
-router.get('/warehouses', (req, res) => {
-  res.json({
-    warehouses: seed.WAREHOUSES,
-    stock: seed.WAREHOUSE_STOCK,
-  });
+router.get('/warehouses', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const warehouses = await db.queryAll('SELECT * FROM warehouses ORDER BY name ASC');
+    const stock = await db.queryAll('SELECT * FROM warehouse_stock');
+    db.release();
+    res.json({ warehouses, stock });
+  } catch (err) {
+    res.json({ warehouses: [], stock: [] });
+  }
 });
 
-router.get('/subscription-plans', (req, res) => {
-  res.json(seed.SUBSCRIPTION_PLANS);
+router.get('/subscription-plans', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM subscription_plans ORDER BY name ASC');
+    db.release();
+    res.json(rows);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // --- 3. RISK SCORE & APPROVAL PRE-FLIGHT ---
@@ -92,183 +146,250 @@ router.post('/quotations/calculate-risk', (req, res) => {
 });
 
 // --- 4. QUOTATION CRUD & WORKSPACE ---
-router.get('/quotations', (req, res) => {
-  const { status, salesRepId, period } = req.query;
-  let filtered = [...seed.QUOTATIONS];
+router.get('/quotations', async (req, res) => {
+  try {
+    const { status, salesRepId } = req.query;
+    const db = await getConnection();
 
-  if (status) {
-    filtered = filtered.filter((q) => q.status === status);
-  }
-  if (salesRepId) {
-    filtered = filtered.filter((q) => q.sales_rep_id === salesRepId);
-  }
+    let query = `
+      SELECT q.*, c.company_name AS customer_name, u.full_name AS sales_rep_name
+      FROM quotations q
+      LEFT JOIN customers c ON q.customer_id = c.id
+      LEFT JOIN users u ON q.sales_rep_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+    let idx = 1;
 
-  res.json(filtered);
+    if (status) {
+      query += ` AND q.status = $${idx++}`;
+      params.push(status);
+    }
+    if (salesRepId) {
+      query += ` AND q.sales_rep_id::text = $${idx++}`;
+      params.push(String(salesRepId));
+    }
+
+    query += ` ORDER BY q.created_at DESC`;
+    const rows = await db.queryAll(query, params);
+    db.release();
+    res.json(rows);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
-router.get('/quotations/:id', (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id || q.quote_number === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
-  res.json(quote);
+router.get('/quotations/:id', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const quote = await db.queryOne(`
+      SELECT q.*, c.company_name AS customer_name, u.full_name AS sales_rep_name
+      FROM quotations q
+      LEFT JOIN customers c ON q.customer_id = c.id
+      LEFT JOIN users u ON q.sales_rep_id = u.id
+      WHERE q.id::text = $1 OR q.quote_number = $1
+    `, [req.params.id]);
+
+    if (!quote) {
+      db.release();
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    const lines = await db.queryAll(`
+      SELECT ql.*, p.name AS product_name
+      FROM quotation_lines ql
+      LEFT JOIN products p ON ql.product_id = p.id
+      WHERE ql.quotation_id = $1
+    `, [quote.id]);
+
+    db.release();
+    res.json({ ...quote, lines });
+  } catch (err) {
+    res.status(404).json({ message: 'Quotation not found' });
+  }
 });
 
-router.post('/quotations', (req, res) => {
-  const { customerId, salesRepId, lineItems, orderDiscountPct } = req.body;
+router.post('/quotations', async (req, res) => {
+  try {
+    const { customerId, salesRepId, lineItems, orderDiscountPct } = req.body;
+    const db = await getConnection();
 
-  const customer = seed.CUSTOMERS.find((c) => c.id === customerId) || seed.CUSTOMERS[0];
-  const rep = seed.USERS.find((u) => u.id === salesRepId) || seed.USERS[0];
+    let customer = await db.queryOne(`SELECT * FROM customers WHERE id::text = $1`, [String(customerId)]);
+    if (!customer) {
+      customer = await db.queryOne(`SELECT * FROM customers ORDER BY created_at ASC LIMIT 1`);
+    }
 
-  const riskResult = calculateBlendedRiskScore({
-    customerTierCode: customer.tier_code || 'silver',
-    lineItems: lineItems || [],
-    orderDiscountPct: Number(orderDiscountPct || 0),
-  });
+    let rep = await db.queryOne(`SELECT * FROM users WHERE id::text = $1`, [String(salesRepId)]);
+    if (!rep) {
+      rep = await db.queryOne(`SELECT * FROM users WHERE role = 'sales_rep' ORDER BY created_at ASC LIMIT 1`);
+    }
 
-  const quoteId = `quote_${Date.now()}`;
-  const quoteNumber = `Q-2026-${Math.floor(100 + Math.random() * 900)}`;
+    const riskResult = calculateBlendedRiskScore({
+      customerTierCode: customer?.tier_code || 'silver',
+      lineItems: lineItems || [],
+      orderDiscountPct: Number(orderDiscountPct || 0),
+    });
 
-  const newQuote = {
-    id: quoteId,
-    quote_number: quoteNumber,
-    customer_id: customer.id,
-    customer_name: customer.company_name,
-    customer_tier_code: customer.tier_code || 'silver',
-    sales_rep_id: rep.id,
-    sales_rep_name: rep.full_name,
-    status: riskResult.suggestedStatus,
-    blended_risk_score: riskResult.blendedRiskScore,
-    order_level_discount_pct: Number(orderDiscountPct || 0),
-    subtotal: riskResult.subtotal,
-    total_discount_amount: riskResult.totalDiscountAmount,
-    total_amount: riskResult.totalAmount,
-    currency_code: 'USD',
-    last_activity_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    lines: riskResult.processedLines.map((line, idx) => ({
-      id: `line_${quoteId}_${idx + 1}`,
-      quotation_id: quoteId,
-      product_id: line.productId || line.id,
-      product_name: line.productName || line.name,
-      quantity: line.quantity,
-      unit_price: line.unitPrice,
-      cost_price: line.costPrice,
-      discount_pct: line.discountPct,
-      line_discount_ceiling_pct: line.categoryCeilingPct,
-      line_total: line.lineTotal,
-      margin_pct: line.marginPct,
-      is_recurring: Boolean(line.is_recurring || line.categoryType === 'subscription'),
-      subscription_status: line.categoryType === 'subscription' ? 'active' : null,
-      added_via_upsell: Boolean(line.addedViaUpsell),
-    })),
-    approvals: riskResult.approvalLevels.map((lvl, i) => ({
-      id: `app_${quoteId}_${i + 1}`,
-      quotation_id: quoteId,
-      approval_level: lvl,
-      sequence_order: i + 1,
-      action: null,
-    })),
-  };
+    const quoteNumber = `Q-2026-${Math.floor(100 + Math.random() * 900)}`;
 
-  seed.QUOTATIONS.unshift(newQuote);
-  seed.AUDIT_LOGS.push({
-    id: `audit_${Date.now()}`,
-    entity_type: 'quotation',
-    entity_id: quoteId,
-    action: 'created',
-    performed_by_user_id: rep.id,
-    reason: 'Initial quotation creation by Sales Rep',
-    created_at: new Date().toISOString(),
-  });
+    const newQuote = await db.queryOne(`
+      INSERT INTO quotations (
+        quote_number, customer_id, sales_rep_id, status, blended_risk_score,
+        order_level_discount_pct, subtotal, total_discount_amount, total_amount, currency_code,
+        created_at, updated_at, last_activity_at
+      ) VALUES ($1, $2, $3, $4::quotation_status, $5, $6, $7, $8, $9, 'USD', NOW(), NOW(), NOW())
+      RETURNING *
+    `, [
+      quoteNumber,
+      customer?.id || null,
+      rep?.id || null,
+      riskResult.suggestedStatus || 'draft',
+      riskResult.blendedRiskScore || 0,
+      Number(orderDiscountPct || 0),
+      riskResult.subtotal || 0,
+      riskResult.totalDiscountAmount || 0,
+      riskResult.totalAmount || 0,
+    ]);
 
-  res.status(201).json(newQuote);
+    if (newQuote) {
+      await db.query(`
+        INSERT INTO audit_log (entity_type, entity_id, action, reason, performed_by_user_id, created_at)
+        VALUES ('quotation', $1, 'created', 'Initial quotation creation by Sales Rep', $2, NOW())
+      `, [newQuote.id, rep?.id || null]);
+    }
+
+    db.release();
+    res.status(201).json(newQuote);
+  } catch (err) {
+    console.warn('DB error POST /quotations:', err.message);
+    res.status(500).json({ message: 'Failed to create quotation' });
+  }
 });
 
 // --- 5. LIVE UPSELL & MARGIN IMPACT ---
-router.post('/quotations/:id/upsell-suggestions', (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id);
-  const cartLines = quote ? quote.lines : req.body.cartLines || [];
+router.post('/quotations/:id/upsell-suggestions', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const products = await db.queryAll('SELECT * FROM products WHERE is_active = true OR is_active IS NULL');
+    const rules = await db.queryAll('SELECT * FROM upsell_rules WHERE is_active = true');
+    db.release();
 
-  const suggestions = getUpsellSuggestions({
-    currentCartLines: cartLines,
-    availableProducts: seed.PRODUCTS,
-    upsellRules: seed.UPSELL_RULES,
-  });
+    const mappedRules = rules.map((r) => ({
+      baseProductId: r.base_product_id,
+      suggestedProductId: r.suggested_product_id,
+      coPurchaseScore: Number(r.co_purchase_score || 0.8),
+      minMarginPctRequired: Number(r.min_margin_pct_required || 15),
+    }));
 
-  res.json(suggestions);
+    const suggestions = getUpsellSuggestions({
+      currentCartLines: req.body.cartLines || [],
+      availableProducts: products,
+      upsellRules: mappedRules,
+    });
+
+    res.json(suggestions);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // --- 6. DISCOUNT APPROVAL & GOVERNANCE ---
-router.post('/quotations/:id/approve', (req, res) => {
-  const { userId, userRole, action, reason } = req.body;
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
+router.post('/quotations/:id/approve', async (req, res) => {
+  try {
+    const { userId, userRole, action, reason } = req.body;
+    const db = await getConnection();
 
-  const appStep = quote.approvals.find((a) => a.approval_level === userRole && !a.action);
-  if (appStep) {
-    appStep.action = action; // 'approved' | 'rejected' | 'returned_for_revision'
-    appStep.acted_at = new Date().toISOString();
-    appStep.reason = reason;
+    const quote = await db.queryOne(`SELECT * FROM quotations WHERE id::text = $1 OR quote_number = $1`, [req.params.id]);
+    if (!quote) {
+      db.release();
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    let updatedStatus = quote.status;
+    if (action === 'approved') {
+      updatedStatus = 'approved';
+    } else if (action === 'rejected') {
+      updatedStatus = 'rejected';
+    } else if (action === 'returned_for_revision') {
+      updatedStatus = 'draft';
+    }
+
+    await db.query(`
+      UPDATE quotations
+      SET status = $1::quotation_status, last_activity_at = NOW(), updated_at = NOW()
+      WHERE id = $2
+    `, [updatedStatus, quote.id]);
+
+    await db.query(`
+      INSERT INTO audit_log (entity_type, entity_id, action, reason, performed_by_user_id, created_at)
+      VALUES ('quotation', $1, $2, $3, $4, NOW())
+    `, [quote.id, `approval_${action}`, reason || `Approval decision: ${action}`, isUUID(String(userId)) ? userId : null]);
+
+    db.release();
+    res.json({ message: `Quotation updated to ${updatedStatus}`, quote: { ...quote, status: updatedStatus } });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to process approval action' });
   }
-
-  const allApproved = quote.approvals.every((a) => a.action === 'approved');
-  const anyRejected = quote.approvals.some((a) => a.action === 'rejected');
-  const returned = quote.approvals.some((a) => a.action === 'returned_for_revision');
-
-  if (anyRejected) {
-    quote.status = 'rejected';
-  } else if (returned) {
-    quote.status = 'draft';
-  } else if (allApproved) {
-    quote.status = 'approved';
-  }
-
-  quote.last_activity_at = new Date().toISOString();
-
-  seed.AUDIT_LOGS.push({
-    id: `audit_${Date.now()}`,
-    entity_type: 'quotation',
-    entity_id: quote.id,
-    action: `approval_${action}`,
-    performed_by_user_id: userId,
-    reason: reason || `Approval decision: ${action}`,
-    created_at: new Date().toISOString(),
-  });
-
-  res.json({ message: `Quotation updated to ${quote.status}`, quote });
 });
 
 // --- 7. MULTI-WAREHOUSE FULFILLMENT SPLIT ---
-router.post('/quotations/:id/fulfillment-split', (req, res) => {
-  const { overrideSplits } = req.body;
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
+router.post('/quotations/:id/fulfillment-split', async (req, res) => {
+  try {
+    const { overrideSplits } = req.body;
+    const db = await getConnection();
 
-  const lineItems = quote.lines.map((l) => ({
-    lineId: l.id,
-    productId: l.product_id,
-    productName: l.product_name,
-    quantity: l.quantity,
-  }));
+    const quote = await db.queryOne(`SELECT * FROM quotations WHERE id::text = $1 OR quote_number = $1`, [req.params.id]);
+    if (!quote) {
+      db.release();
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
 
-  const warehousesWithStock = seed.WAREHOUSES.map((wh) => {
-    const stockMap = {};
-    seed.WAREHOUSE_STOCK.filter((s) => s.warehouse_id === wh.id).forEach((s) => {
-      stockMap[s.product_id] = s.quantity_on_hand;
+    const lines = await db.queryAll(`
+      SELECT ql.*, p.name AS product_name
+      FROM quotation_lines ql
+      LEFT JOIN products p ON ql.product_id = p.id
+      WHERE ql.quotation_id = $1
+    `, [quote.id]);
+
+    const warehouses = await db.queryAll('SELECT * FROM warehouses');
+    const stock = await db.queryAll('SELECT * FROM warehouse_stock');
+    db.release();
+
+    const lineItems = lines.map((l) => ({
+      lineId: l.id,
+      productId: l.product_id,
+      productName: l.product_name || 'Product',
+      quantity: l.quantity,
+    }));
+
+    const warehousesWithStock = warehouses.map((wh) => {
+      const stockMap = {};
+      stock.filter((s) => String(s.warehouse_id) === String(wh.id)).forEach((s) => {
+        stockMap[s.product_id] = s.quantity_on_hand;
+      });
+      return { ...wh, stockMap };
     });
-    return { ...wh, stockMap };
-  });
 
-  const result = calculateFulfillmentSplits(lineItems, warehousesWithStock, overrideSplits);
-  res.json(result);
+    const result = calculateFulfillmentSplits(lineItems, warehousesWithStock, overrideSplits);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to calculate fulfillment split' });
+  }
 });
 
 // --- 8. HYBRID BILLING & MID-CYCLE PRORATION ---
-router.get('/quotations/:id/billing', (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
+router.get('/quotations/:id/billing', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const quote = await db.queryOne(`SELECT * FROM quotations WHERE id::text = $1 OR quote_number = $1`, [req.params.id]);
+    db.release();
+    if (!quote) return res.status(404).json({ message: 'Quotation not found' });
 
-  const schedule = generateHybridBillingSchedule(quote);
-  res.json(schedule);
+    const schedule = generateHybridBillingSchedule(quote);
+    res.json(schedule);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to generate billing schedule' });
+  }
 });
 
 router.post('/quotations/:id/prorate-change', (req, res) => {
@@ -289,99 +410,147 @@ router.post('/quotations/:id/cancel-subscription', (req, res) => {
 });
 
 // --- 9. CUSTOMER PORTAL NEGOTIATION ---
-router.get('/portal/quote/:id', (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id || q.quote_number === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Quotation link invalid or expired.' });
+router.get('/portal/quote/:id', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const quote = await db.queryOne(`SELECT * FROM quotations WHERE id::text = $1 OR quote_number = $1`, [req.params.id]);
+    if (!quote) {
+      db.release();
+      return res.status(404).json({ message: 'Quotation link invalid or expired.' });
+    }
 
-  const negotiations = seed.NEGOTIATION_REQUESTS.filter((n) => n.quotation_id === quote.id);
-  res.json({ quote, negotiations });
-});
-
-router.post('/portal/negotiate', (req, res) => {
-  const { quotationId, customerUserId, requestType, message, proposedDiscountPct } = req.body;
-  const quote = seed.QUOTATIONS.find((q) => q.id === quotationId);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
-
-  const negEntry = {
-    id: `neg_${Date.now()}`,
-    quotation_id: quotationId,
-    customer_user_id: customerUserId,
-    request_type: requestType || 'comment', // 'comment' | 'change_request' | 'counter_discount'
-    message,
-    proposed_discount_pct: proposedDiscountPct ? Number(proposedDiscountPct) : null,
-    status: 'open',
-    created_at: new Date().toISOString(),
-  };
-
-  seed.NEGOTIATION_REQUESTS.push(negEntry);
-  quote.status = 'under_negotiation';
-  quote.last_activity_at = new Date().toISOString();
-
-  res.json({ message: 'Negotiation request submitted to sales rep.', negEntry });
-});
-
-router.post('/portal/confirm', (req, res) => {
-  const { quotationId, customerUserId } = req.body;
-  const quote = seed.QUOTATIONS.find((q) => q.id === quotationId);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
-
-  // Check if final terms exceed approval thresholds
-  const riskResult = calculateBlendedRiskScore({
-    customerTierCode: quote.customer_tier_code || 'silver',
-    lineItems: quote.lines,
-    orderDiscountPct: quote.order_level_discount_pct,
-  });
-
-  if (riskResult.requiresApproval) {
-    quote.status = 'pending_approval';
-    quote.confirmation_triggered_reapproval = true;
-  } else {
-    quote.status = 'confirmed';
-    quote.confirmed_at = new Date().toISOString();
-    quote.confirmed_by_user_id = customerUserId;
+    const negotiations = await db.queryAll(`SELECT * FROM negotiation_requests WHERE quotation_id = $1 ORDER BY created_at ASC`, [quote.id]);
+    db.release();
+    res.json({ quote, negotiations });
+  } catch (err) {
+    res.status(404).json({ message: 'Quotation link invalid or expired.' });
   }
+});
 
-  quote.last_activity_at = new Date().toISOString();
+router.post('/portal/negotiate', async (req, res) => {
+  try {
+    const { quotationId, customerUserId, requestType, message, proposedDiscountPct } = req.body;
+    const db = await getConnection();
 
-  res.json({
-    message: quote.status === 'confirmed' ? 'Quotation confirmed!' : 'Final terms require manager approval.',
-    status: quote.status,
-    requiresApproval: riskResult.requiresApproval,
-  });
+    const quote = await db.queryOne(`SELECT * FROM quotations WHERE id::text = $1 OR quote_number = $1`, [quotationId]);
+    if (!quote) {
+      db.release();
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    const negEntry = await db.queryOne(`
+      INSERT INTO negotiation_requests (quotation_id, customer_user_id, request_type, message, proposed_discount_pct, status, created_at)
+      VALUES ($1, $2, $3, $4, $5, 'open', NOW())
+      RETURNING *
+    `, [quote.id, isUUID(String(customerUserId)) ? customerUserId : null, requestType || 'comment', message || '', proposedDiscountPct ? Number(proposedDiscountPct) : null]);
+
+    await db.query(`UPDATE quotations SET status = 'under_negotiation', last_activity_at = NOW(), updated_at = NOW() WHERE id = $1`, [quote.id]);
+    db.release();
+
+    res.json({ message: 'Negotiation request submitted to sales rep.', negEntry });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to submit negotiation request' });
+  }
+});
+
+router.post('/portal/confirm', async (req, res) => {
+  try {
+    const { quotationId, customerUserId } = req.body;
+    const db = await getConnection();
+
+    const quote = await db.queryOne(`SELECT * FROM quotations WHERE id::text = $1 OR quote_number = $1`, [quotationId]);
+    if (!quote) {
+      db.release();
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    const lines = await db.queryAll(`SELECT * FROM quotation_lines WHERE quotation_id = $1`, [quote.id]);
+
+    const riskResult = calculateBlendedRiskScore({
+      customerTierCode: quote.customer_tier_code || 'silver',
+      lineItems: lines,
+      orderDiscountPct: quote.order_level_discount_pct,
+    });
+
+    const newStatus = riskResult.requiresApproval ? 'pending_approval' : 'confirmed';
+
+    await db.query(`
+      UPDATE quotations
+      SET status = $1::quotation_status, confirmed_at = NOW(), confirmed_by_user_id = $2, last_activity_at = NOW(), updated_at = NOW()
+      WHERE id = $3
+    `, [newStatus, isUUID(String(customerUserId)) ? customerUserId : null, quote.id]);
+
+    db.release();
+    res.json({
+      message: newStatus === 'confirmed' ? 'Quotation confirmed!' : 'Final terms require manager approval.',
+      status: newStatus,
+      requiresApproval: riskResult.requiresApproval,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to confirm quotation' });
+  }
 });
 
 // --- 10. DEAL HEALTH & ANOMALY DASHBOARD ---
-router.get('/analytics/deal-health', (req, res) => {
-  res.json({
-    alerts: seed.DEAL_HEALTH_ALERTS,
-    stalledDeals: seed.QUOTATIONS.filter((q) => q.status === 'draft' || q.status === 'under_negotiation'),
-  });
+router.get('/analytics/deal-health', async (req, res) => {
+  try {
+    const db = await getConnection();
+    const alerts = await db.queryAll('SELECT * FROM deal_health_alerts ORDER BY triggered_at DESC');
+    const stalledDeals = await db.queryAll("SELECT * FROM quotations WHERE status IN ('draft', 'under_negotiation')");
+    db.release();
+    res.json({ alerts, stalledDeals });
+  } catch (err) {
+    res.json({ alerts: [], stalledDeals: [] });
+  }
 });
 
-router.post('/analytics/nudge', (req, res) => {
-  const { alertId, quotationId, note } = req.body;
-  const alert = seed.DEAL_HEALTH_ALERTS.find((a) => a.id === alertId);
-  if (alert) alert.status = 'escalated';
-
-  res.json({ message: 'Automated nudge dispatched to Sales Rep.', alertId, note });
+router.post('/analytics/nudge', async (req, res) => {
+  try {
+    const { alertId, note } = req.body;
+    const db = await getConnection();
+    if (isUUID(String(alertId))) {
+      await db.query(`UPDATE deal_health_alerts SET status = 'escalated' WHERE id = $1`, [alertId]);
+    }
+    db.release();
+    res.json({ message: 'Automated nudge dispatched to Sales Rep.', alertId, note });
+  } catch (err) {
+    res.json({ message: 'Nudge dispatched.' });
+  }
 });
 
 // --- 11. SALES REPORTS WITH EXPORT FILTERS ---
-router.get('/reports', (req, res) => {
-  const { period, salesRepId, status } = req.query;
-  let reports = seed.QUOTATIONS;
+router.get('/reports', async (req, res) => {
+  try {
+    const { salesRepId, status } = req.query;
+    const db = await getConnection();
 
-  if (status) reports = reports.filter((r) => r.status === status);
-  if (salesRepId) reports = reports.filter((r) => r.sales_rep_id === salesRepId);
+    let query = `SELECT * FROM quotations WHERE 1=1`;
+    const params = [];
+    let idx = 1;
 
-  const summary = {
-    totalQuotes: reports.length,
-    totalPipelineValue: reports.reduce((acc, r) => acc + Number(r.total_amount || 0), 0),
-    avgDiscountPct: reports.length > 0 ? (reports.reduce((acc, r) => acc + Number(r.order_level_discount_pct || 0), 0) / reports.length).toFixed(2) : 0,
-    records: reports,
-  };
+    if (status) {
+      query += ` AND status = $${idx++}`;
+      params.push(status);
+    }
+    if (salesRepId) {
+      query += ` AND sales_rep_id::text = $${idx++}`;
+      params.push(String(salesRepId));
+    }
 
-  res.json(summary);
+    const reports = await db.queryAll(query, params);
+    db.release();
+
+    const summary = {
+      totalQuotes: reports.length,
+      totalPipelineValue: reports.reduce((acc, r) => acc + Number(r.total_amount || 0), 0),
+      avgDiscountPct: reports.length > 0 ? (reports.reduce((acc, r) => acc + Number(r.order_level_discount_pct || 0), 0) / reports.length).toFixed(2) : 0,
+      records: reports,
+    };
+
+    res.json(summary);
+  } catch (err) {
+    res.json({ totalQuotes: 0, totalPipelineValue: 0, avgDiscountPct: 0, records: [] });
+  }
 });
 
 module.exports = router;

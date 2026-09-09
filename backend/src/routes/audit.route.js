@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
@@ -66,8 +65,8 @@ router.get('/', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finan
 
     return res.json(formatted);
   } catch (err) {
-    console.warn('DB error on GET /api/audit, falling back to seed:', err.message);
-    return res.json(seed.AUDIT_LOGS || []);
+    console.warn('DB error on GET /api/audit:', err.message);
+    return res.json([]);
   }
 });
 
@@ -151,9 +150,7 @@ router.get('/:id', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'fi
     });
   } catch (err) {
     console.warn('DB error on GET /api/audit/:id:', err.message);
-    const log = seed.AUDIT_LOGS?.find((a) => a.id === req.params.id);
-    if (!log) return res.status(404).json({ message: 'Audit record not found' });
-    return res.json(log);
+    return res.status(404).json({ message: 'Audit record not found' });
   }
 });
 
@@ -216,8 +213,7 @@ router.get('/:entityType/:entityId', authenticateJWT, authorizeRoles('admin', 's
     );
   } catch (err) {
     console.warn('DB error on GET /api/audit/:entityType/:entityId:', err.message);
-    const logs = seed.AUDIT_LOGS?.filter((a) => a.entity_type === req.params.entityType && (a.entity_id === req.params.entityId || a.entity_id.includes(req.params.entityId)));
-    return res.json(logs || []);
+    return res.json([]);
   }
 });
 

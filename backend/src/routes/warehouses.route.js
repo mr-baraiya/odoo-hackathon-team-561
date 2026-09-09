@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
@@ -24,9 +23,9 @@ router.get('/', authenticateJWT, async (req, res) => {
       })));
     }
   } catch (err) {
-    console.warn('[warehouses.route] DB query failed, using fallback:', err.message);
+    console.warn('[warehouses.route] DB query failed:', err.message);
   }
-  res.json(seed.WAREHOUSES);
+  res.json([]);
 });
 
 // GET /api/warehouses/:id
@@ -45,9 +44,7 @@ router.get('/:id', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.warn('[warehouses.route] DB query failed:', err.message);
   }
-  const warehouse = seed.WAREHOUSES.find((w) => String(w.id) === String(req.params.id));
-  if (!warehouse) return res.status(404).json({ message: 'Warehouse not found' });
-  res.json(warehouse);
+  return res.status(404).json({ message: 'Warehouse not found' });
 });
 
 // POST /api/warehouses
@@ -75,15 +72,7 @@ router.post('/', authenticateJWT, authorizeRoles('admin', 'finance_ops', 'sales_
     console.warn('[warehouses.route] DB insert failed, using memory fallback:', err.message);
   }
 
-  const newWh = {
-    id: `70${seed.WAREHOUSES.length + 1}`,
-    name: nameVal,
-    location: locVal,
-    shipping_cost_weight: weightVal,
-    is_active: activeVal,
-  };
-  seed.WAREHOUSES.push(newWh);
-  res.status(201).json(newWh);
+  return res.status(500).json({ message: 'Failed to insert warehouse into database' });
 });
 
 // PUT /api/warehouses/:id
@@ -114,10 +103,7 @@ router.put('/:id', authenticateJWT, authorizeRoles('admin', 'finance_ops', 'sale
     console.warn('[warehouses.route] DB update failed:', err.message);
   }
 
-  const warehouse = seed.WAREHOUSES.find((w) => String(w.id) === String(req.params.id));
-  if (!warehouse) return res.status(404).json({ message: 'Warehouse not found' });
-  Object.assign(warehouse, req.body);
-  res.json(warehouse);
+  return res.status(404).json({ message: 'Warehouse not found' });
 });
 
 // DELETE /api/warehouses/:id
@@ -136,8 +122,6 @@ router.delete('/:id', authenticateJWT, authorizeRoles('admin', 'finance_ops', 's
     console.warn('[warehouses.route] DB delete warning:', err.message);
   }
 
-  const idx = seed.WAREHOUSES.findIndex((w) => String(w.id) === String(req.params.id));
-  if (idx !== -1) seed.WAREHOUSES.splice(idx, 1);
   res.json({ message: 'Warehouse deleted successfully' });
 });
 

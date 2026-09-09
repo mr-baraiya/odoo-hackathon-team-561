@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 const { getConnection } = require('../service/database');
 
@@ -18,22 +17,31 @@ router.get('/categories', authenticateJWT, async (req, res) => {
         LEFT JOIN product_categories parent ON parent.id = pc.parent_id
         ORDER BY pc.name ASC
       `);
-      if (rows && rows.length > 0) {
-        return res.json(rows);
-      }
+      return res.json(rows || []);
     } finally {
       db.release();
     }
   } catch (err) {
     console.warn('[API GET /categories] DB query failed:', err.message);
+    return res.json([]);
   }
-  return res.json(seed.PRODUCT_CATEGORIES);
 });
 
-router.get('/categories/:id', authenticateJWT, (req, res) => {
-  const cat = seed.PRODUCT_CATEGORIES.find((c) => c.id === req.params.id);
-  if (!cat) return res.status(404).json({ message: 'Category not found' });
-  res.json(cat);
+router.get('/categories/:id', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    try {
+      if (isUUID(req.params.id)) {
+        const cat = await db.queryOne('SELECT * FROM product_categories WHERE id = $1', [req.params.id]);
+        if (cat) return res.json(cat);
+      }
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /categories/:id] DB error:', err.message);
+  }
+  return res.status(404).json({ message: 'Category not found' });
 });
 
 router.post('/categories', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -66,7 +74,6 @@ router.post('/categories', authenticateJWT, authorizeRoles('admin'), async (req,
           if (parentRow) inserted.parent_name = parentRow.name;
         }
         console.log('[API POST /catalog/categories] DB INSERT SUCCESS:', inserted);
-        seed.PRODUCT_CATEGORIES.push(inserted);
         return res.status(201).json(inserted);
       }
     } finally {
@@ -74,17 +81,8 @@ router.post('/categories', authenticateJWT, authorizeRoles('admin'), async (req,
     }
   } catch (err) {
     console.error('[API POST /catalog/categories] DB insert failed:', err.message);
+    return res.status(500).json({ message: 'Failed to create category.' });
   }
-
-  const newCat = {
-    id: `40${seed.PRODUCT_CATEGORIES.length + 1}`,
-    name,
-    category_type: validCatType,
-    discount_ceiling_pct: Number(discount_ceiling_pct || 15),
-    parent_id: parent_id || null,
-  };
-  seed.PRODUCT_CATEGORIES.push(newCat);
-  return res.status(201).json(newCat);
 });
 
 router.put('/categories/:id', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -118,10 +116,7 @@ router.put('/categories/:id', authenticateJWT, authorizeRoles('admin'), async (r
     console.warn('[API PUT /catalog/categories] DB update error:', err.message);
   }
 
-  const cat = seed.PRODUCT_CATEGORIES.find((c) => c.id === id);
-  if (!cat) return res.status(404).json({ message: 'Category not found' });
-  Object.assign(cat, req.body);
-  return res.json(cat);
+  return res.status(404).json({ message: 'Category not found' });
 });
 
 router.delete('/categories/:id', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -140,10 +135,7 @@ router.delete('/categories/:id', authenticateJWT, authorizeRoles('admin'), async
     console.warn('[API DELETE /catalog/categories] DB error:', err.message);
   }
 
-  const idx = seed.PRODUCT_CATEGORIES.findIndex((c) => c.id === id);
-  if (idx === -1) return res.status(404).json({ message: 'Category not found' });
-  const deleted = seed.PRODUCT_CATEGORIES.splice(idx, 1)[0];
-  return res.json({ message: 'Category deleted', category: deleted });
+  return res.status(404).json({ message: 'Category not found' });
 });
 
 // --- 6. PRODUCTS & VARIANTS ---
@@ -160,7 +152,7 @@ router.get('/products', authenticateJWT, async (req, res) => {
         GROUP BY p.id, pc.name, pc.category_type
         ORDER BY p.name ASC
       `);
-      if (rows && rows.length > 0) {
+      if (rows) {
         const allVariants = await db.queryAll(`SELECT id, product_id, attribute_name, value, extra_price FROM product_variant_attributes`);
         const rowsWithVariants = rows.map((p) => {
           const prodVars = allVariants
@@ -183,7 +175,7 @@ router.get('/products', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.warn('[API GET /products] DB query failed:', err.message);
   }
-  return res.json(seed.PRODUCTS);
+  return res.json([]);
 });
 
 router.get('/products/:id', authenticateJWT, async (req, res) => {
@@ -216,9 +208,7 @@ router.get('/products/:id', authenticateJWT, async (req, res) => {
     console.warn('[API GET /products/:id] DB query error:', err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id || p.sku === id);
-  if (!product) return res.status(404).json({ message: 'Product not found' });
-  return res.json(product);
+  return res.status(404).json({ message: 'Product not found' });
 });
 
 router.post('/products', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -287,7 +277,6 @@ router.post('/products', authenticateJWT, authorizeRoles('admin'), async (req, r
           fullProduct.promo_discount_pct = Number(promo_discount_pct || 10);
           fullProduct.status = status || (isActive ? 'active' : 'draft');
           fullProduct.variants = savedVars ? savedVars.map(v => ({ ...v, extra_price: Number(v.extra_price || 0) })) : [];
-          seed.PRODUCTS.push(fullProduct);
           return res.status(201).json(fullProduct);
         }
       }
@@ -296,28 +285,8 @@ router.post('/products', authenticateJWT, authorizeRoles('admin'), async (req, r
     }
   } catch (err) {
     console.error('[API POST /catalog/products] DB insert failed:', err.message);
+    return res.status(500).json({ message: 'Failed to create product.' });
   }
-
-  const cat = seed.PRODUCT_CATEGORIES.find((c) => c.id === category_id) || seed.PRODUCT_CATEGORIES[0];
-  const newProd = {
-    id: `50${seed.PRODUCTS.length + 1}`,
-    sku: sku || `SKU-${Date.now().toString().slice(-6)}`,
-    name,
-    description: description || '',
-    category_id: cat ? cat.id : '401',
-    category_name: cat ? cat.name : 'Hardware',
-    unit: unit || 'unit',
-    base_price: Number(base_price || 0),
-    cost_price: Number(cost_price || 0),
-    tax_rate_pct: Number(tax_rate_pct || 18),
-    is_active: status ? status === 'active' : true,
-    status: status || 'active',
-    is_promoted: Boolean(is_promoted),
-    promo_discount_pct: Number(promo_discount_pct || 10),
-    variants: Array.isArray(variants) ? variants : [],
-  };
-  seed.PRODUCTS.push(newProd);
-  return res.status(201).json(newProd);
 });
 
 router.put('/products/:id', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -325,7 +294,6 @@ router.put('/products/:id', authenticateJWT, authorizeRoles('admin'), async (req
   const { sku, name, description, category_id, unit, base_price, cost_price, tax_rate_pct, is_promoted, promo_discount_pct, status, is_active, variants } = req.body;
   console.log(`[API PUT /catalog/products/${id}] Updating product...`);
 
-  let updatedProduct = null;
   try {
     const db = await getConnection();
     try {
@@ -368,7 +336,7 @@ router.put('/products/:id', authenticateJWT, authorizeRoles('admin'), async (req
             }
           }
 
-          updatedProduct = await db.queryOne(`
+          const updatedProduct = await db.queryOne(`
             SELECT p.*, pc.name as category_name, pc.category_type
             FROM products p
             LEFT JOIN product_categories pc ON pc.id = p.category_id
@@ -381,6 +349,7 @@ router.put('/products/:id', authenticateJWT, authorizeRoles('admin'), async (req
               [id]
             );
             updatedProduct.variants = savedVars ? savedVars.map(v => ({ ...v, extra_price: Number(v.extra_price || 0) })) : [];
+            return res.json(updatedProduct);
           }
         }
       }
@@ -391,25 +360,18 @@ router.put('/products/:id', authenticateJWT, authorizeRoles('admin'), async (req
     console.warn(`[API PUT /catalog/products/${id}] DB update error:`, err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id || p.sku === id);
-  if (product) {
-    Object.assign(product, req.body);
-    if (!updatedProduct) updatedProduct = product;
-  }
-
-  return res.json(updatedProduct || { message: 'Product updated successfully' });
+  return res.status(404).json({ message: 'Product not found' });
 });
 
 router.delete('/products/:id', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
   console.log(`[API DELETE /catalog/products/${id}] Deleting product...`);
 
-  let deleted = null;
   try {
     const db = await getConnection();
     try {
       if (isUUID(id)) {
-        deleted = await db.queryOne(`DELETE FROM products WHERE id = $1 RETURNING *`, [id]);
+        const deleted = await db.queryOne(`DELETE FROM products WHERE id = $1 RETURNING *`, [id]);
         if (deleted) return res.json({ message: 'Product deleted', product: deleted });
       }
     } finally {
@@ -419,11 +381,7 @@ router.delete('/products/:id', authenticateJWT, authorizeRoles('admin'), async (
     console.warn(`[API DELETE /catalog/products/${id}] DB error:`, err.message);
   }
 
-  const idx = seed.PRODUCTS.findIndex((p) => p.id === id || p.sku === id);
-  if (idx !== -1) {
-    deleted = seed.PRODUCTS.splice(idx, 1)[0];
-  }
-  return res.json({ message: 'Product deleted', product: deleted });
+  return res.status(404).json({ message: 'Product not found' });
 });
 
 router.patch('/products/:id/status', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -445,12 +403,7 @@ router.patch('/products/:id/status', authenticateJWT, authorizeRoles('admin'), a
     console.warn('[API PATCH /products/status] DB error:', err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id);
-  if (product) {
-    product.is_active = targetActive;
-    if (status) product.status = status;
-  }
-  return res.json({ message: 'Product status updated', product });
+  return res.status(404).json({ message: 'Product not found' });
 });
 
 router.patch('/products/:id/promotion', authenticateJWT, authorizeRoles('admin', 'sales_manager'), async (req, res) => {
@@ -471,14 +424,8 @@ router.patch('/products/:id/promotion', authenticateJWT, authorizeRoles('admin',
     console.warn('[API PATCH /products/promotion] DB error:', err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id);
-  if (product) {
-    product.is_promoted = is_promoted;
-  }
-  return res.json({ message: 'Product promotion updated', product });
+  return res.status(404).json({ message: 'Product not found' });
 });
-
-module.exports = router;
 
 // Product Variants (DB connected)
 router.get('/products/:id/variants', authenticateJWT, async (req, res) => {
@@ -497,9 +444,7 @@ router.get('/products/:id/variants', authenticateJWT, async (req, res) => {
     console.warn('[API GET /products/:id/variants] DB error:', err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id);
-  if (!product) return res.status(404).json({ message: 'Product not found' });
-  res.json(product.variants || []);
+  return res.json([]);
 });
 
 router.post('/products/:id/variants', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -524,18 +469,7 @@ router.post('/products/:id/variants', authenticateJWT, authorizeRoles('admin'), 
     console.warn('[API POST /products/:id/variants] DB error:', err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id);
-  if (!product) return res.status(404).json({ message: 'Product not found' });
-  if (!product.variants) product.variants = [];
-
-  const newVariant = {
-    id: `var_${Date.now()}`,
-    attribute_name: attribute_name || 'RAM',
-    value: value || '64GB',
-    extra_price: Number(extra_price || 0),
-  };
-  product.variants.push(newVariant);
-  res.status(201).json(newVariant);
+  return res.status(400).json({ message: 'Failed to create product variant' });
 });
 
 router.put('/products/:id/variants/:variantId', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -563,13 +497,7 @@ router.put('/products/:id/variants/:variantId', authenticateJWT, authorizeRoles(
     console.warn('[API PUT /products/:id/variants/:variantId] DB error:', err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id);
-  if (!product || !product.variants) return res.status(404).json({ message: 'Product or variant not found' });
-  const variant = product.variants.find((v) => v.id === variantId);
-  if (!variant) return res.status(404).json({ message: 'Variant not found' });
-
-  Object.assign(variant, req.body);
-  res.json(variant);
+  return res.status(404).json({ message: 'Variant not found' });
 });
 
 router.delete('/products/:id/variants/:variantId', authenticateJWT, authorizeRoles('admin'), async (req, res) => {
@@ -589,13 +517,7 @@ router.delete('/products/:id/variants/:variantId', authenticateJWT, authorizeRol
     console.warn('[API DELETE /products/:id/variants/:variantId] DB error:', err.message);
   }
 
-  const product = seed.PRODUCTS.find((p) => p.id === id);
-  if (!product || !product.variants) return res.status(404).json({ message: 'Product or variant not found' });
-  const idx = product.variants.findIndex((v) => v.id === variantId);
-  if (idx === -1) return res.status(404).json({ message: 'Variant not found' });
-
-  const deleted = product.variants.splice(idx, 1)[0];
-  res.json({ message: 'Variant deleted', variant: deleted });
+  return res.status(404).json({ message: 'Variant not found' });
 });
 
 module.exports = router;

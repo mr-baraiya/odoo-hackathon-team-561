@@ -1,6 +1,5 @@
 const express = require('express');
 const { getConnection } = require('../service/database');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
 const router = express.Router();
@@ -79,16 +78,14 @@ router.get('/sales', authenticateJWT, authorizeRoles(...ROLES), async (req, res)
     });
     res.json({ reportType: 'sales', ...result });
   } catch (err) {
-    // Seed fallback
-    const quotations = seed.QUOTATIONS || [];
     res.json({
       reportType: 'sales',
       summary: {
-        total_quotes: quotations.length,
-        confirmed_revenue: quotations.filter(q => q.status === 'confirmed').reduce((a, b) => a + (b.total_amount || 0), 0),
-        total_pipeline_value: quotations.reduce((a, b) => a + (b.total_amount || 0), 0),
-        avg_deal_size: quotations.length ? quotations.reduce((a, b) => a + (b.total_amount || 0), 0) / quotations.length : 0,
-        total_discounts_given: quotations.reduce((a, b) => a + (b.total_discount_amount || 0), 0),
+        total_quotes: 0,
+        confirmed_revenue: 0,
+        total_pipeline_value: 0,
+        avg_deal_size: 0,
+        total_discounts_given: 0,
       },
       byRep: [], byMonth: [], byStatus: [],
     });
@@ -207,8 +204,7 @@ router.get('/quotations', authenticateJWT, authorizeRoles(...ROLES), async (req,
     });
     res.json({ reportType: 'quotations', ...result });
   } catch (err) {
-    const quotations = seed.QUOTATIONS || [];
-    res.json({ reportType: 'quotations', records: quotations, summary: {}, stalledDeals: [] });
+    res.json({ reportType: 'quotations', records: [], summary: {}, stalledDeals: [] });
   }
 });
 
@@ -258,8 +254,7 @@ router.get('/customers', authenticateJWT, authorizeRoles(...ROLES), async (req, 
     });
     res.json({ reportType: 'customers', ...result });
   } catch (err) {
-    const customers = seed.CUSTOMERS || [];
-    res.json({ reportType: 'customers', customers, summary: {}, byTier: [] });
+    res.json({ reportType: 'customers', customers: [], summary: {}, byTier: [] });
   }
 });
 
@@ -311,8 +306,7 @@ router.get('/products', authenticateJWT, authorizeRoles(...ROLES), async (req, r
     });
     res.json({ reportType: 'products', ...result });
   } catch (err) {
-    const products = seed.PRODUCTS || [];
-    res.json({ reportType: 'products', products, topSellers: [], byCategory: [] });
+    res.json({ reportType: 'products', products: [], topSellers: [], byCategory: [] });
   }
 });
 
@@ -458,13 +452,12 @@ router.get('/stalled-deals', authenticateJWT, authorizeRoles(...ROLES), async (r
     `));
     res.json({ reportType: 'stalled_deals', count: result.length, records: result });
   } catch {
-    const stalled = seed.QUOTATIONS.filter(q => q.status === 'draft');
-    res.json({ reportType: 'stalled_deals', count: stalled.length, records: stalled });
+    res.json({ reportType: 'stalled_deals', count: 0, records: [] });
   }
 });
 
 router.get('/deal-health', authenticateJWT, authorizeRoles(...ROLES), (req, res) => {
-  res.json({ reportType: 'deal_health', alertsCount: seed.DEAL_HEALTH_ALERTS.length, records: seed.DEAL_HEALTH_ALERTS });
+  res.json({ reportType: 'deal_health', alertsCount: 0, records: [] });
 });
 
 module.exports = router;

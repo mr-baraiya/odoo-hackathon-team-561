@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
 const router = express.Router();
@@ -32,17 +31,12 @@ router.post('/webhook', (req, res) => {
   const fromPhone = req.body.From || req.body.phone_number || '';
   const bodyText = (req.body.Body || req.body.text || '').trim();
 
-  const cleanPhone = fromPhone.replace('whatsapp:', '').trim();
-  const matchedUser = seed.USERS.find((u) => u.phone_number === cleanPhone || cleanPhone.includes(u.phone_number.replace('+', '')));
-
-  const userRole = matchedUser ? matchedUser.role : 'customer';
-  const userName = matchedUser ? matchedUser.full_name : 'Valued Customer';
+  const userName = 'Valued Customer';
 
   let replyText = '';
 
   if (bodyText === '1' || bodyText.toLowerCase().includes('quote')) {
-    const userQuotes = seed.QUOTATIONS.slice(0, 2).map((q) => `• ${q.quote_number}: $${q.total_amount} (${q.status})`).join('\n');
-    replyText = `*DealFlow360 Quotations for ${userName}*:\n\n${userQuotes || 'No active quotations found.'}`;
+    replyText = `*DealFlow360 Quotations for ${userName}*:\n\nPlease log in to your Customer Portal to view your active proposals.`;
   } else if (bodyText === '2' || bodyText.toLowerCase().includes('discount')) {
     replyText = `*Request Discount*:\nPlease respond with your desired discount percentage (e.g. "Counter 10%") to submit for sales manager review.`;
   } else if (bodyText === '3' || bodyText.toLowerCase().includes('accept')) {

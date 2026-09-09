@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const vars = require('../config/var');
-const seed = require('../db/dealflow360_seed');
 
 /**
  * Strict & Resilient JWT Authentication Middleware
@@ -34,15 +33,6 @@ function authenticateJWT(req, res, next) {
   }
 
   try {
-    if (token.startsWith('jwt_')) {
-      const userId = token.replace('jwt_', '');
-      const foundUser = seed.USERS.find((u) => u.id === userId || u.email === userId);
-      if (foundUser) {
-        req.user = foundUser;
-        return next();
-      }
-    }
-
     const secrets = [
       vars.jwtSecret,
       process.env.JWT_SECRET,
@@ -76,8 +66,7 @@ function authenticateJWT(req, res, next) {
       return res.status(401).json({ message: 'Invalid or expired authentication token.' });
     }
 
-    const foundUser = seed.USERS.find((u) => u.id === decoded.id || u.email === decoded.email);
-    req.user = foundUser ? { ...foundUser, ...decoded } : decoded;
+    req.user = decoded;
     return next();
   } catch (err) {
     console.warn('[AUTH MIDDLEWARE ERROR]', err.message);

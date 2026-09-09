@@ -1,79 +1,126 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT } = require('../middleware/auth.middleware');
+const { getConnection } = require('../service/database');
 
 const router = express.Router();
 
 // GET /api/orders
-router.get('/', authenticateJWT, (req, res) => {
-  const confirmedQuotes = seed.QUOTATIONS.filter((q) => ['confirmed', 'in_fulfillment', 'fulfilled'].includes(q.status)).map((q) => ({
-    id: `ord_${q.id}`,
-    quotation_id: q.id,
-    order_number: `ORD-${q.quote_number}`,
-    customer_id: q.customer_id,
-    customer_name: q.customer_name,
-    total_amount: q.total_amount,
-    status: q.status === 'confirmed' ? 'pending_fulfillment' : q.status,
-    created_at: q.created_at,
-  }));
-  res.json(confirmedQuotes);
+router.get('/', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll(`
+      SELECT q.id as quotation_id, ('ord_' || q.id::text) as id, ('ORD-' || q.quote_number) as order_number,
+             q.customer_id, c.company_name as customer_name, q.total_amount,
+             CASE WHEN q.status::text = 'confirmed' THEN 'pending_fulfillment' ELSE q.status::text END as status,
+             q.created_at
+      FROM quotations q
+      LEFT JOIN customers c ON c.id = q.customer_id
+      WHERE q.status::text IN ('confirmed', 'in_fulfillment', 'fulfilled')
+      ORDER BY q.created_at DESC
+    `);
+    db.release();
+    return res.json(rows || []);
+  } catch (err) {
+    console.warn('DB error GET /api/orders:', err.message);
+    return res.json([]);
+  }
 });
 
 // GET /api/orders/:id
-router.get('/:id', authenticateJWT, (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => `ord_${q.id}` === req.params.id || q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Order not found' });
-  res.json({
-    id: `ord_${quote.id}`,
-    quotation_id: quote.id,
-    order_number: `ORD-${quote.quote_number}`,
-    customer_id: quote.customer_id,
-    customer_name: quote.customer_name,
-    total_amount: quote.total_amount,
-    status: quote.status === 'confirmed' ? 'pending_fulfillment' : quote.status,
-    lines: quote.lines,
-    created_at: quote.created_at,
-  });
+router.get('/:id', authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  const cleanId = id.startsWith('ord_') ? id.replace('ord_', '') : id;
+  try {
+    const db = await getConnection();
+    const qRow = await db.queryOne(`
+      SELECT q.*, c.company_name as customer_name
+      FROM quotations q
+      LEFT JOIN customers c ON c.id = q.customer_id
+      WHERE q.id::text = $1 OR q.quote_number = $1
+    `, [cleanId]);
+    if (qRow) {
+      const lines = await db.queryAll(`SELECT * FROM quotation_lines WHERE quotation_id = $1`, [qRow.id]);
+      db.release();
+      return res.json({
+        id: `ord_${qRow.id}`,
+        quotation_id: qRow.id,
+        order_number: `ORD-${qRow.quote_number}`,
+        customer_id: qRow.customer_id,
+        customer_name: qRow.customer_name,
+        total_amount: Number(qRow.total_amount || 0),
+        status: qRow.status === 'confirmed' ? 'pending_fulfillment' : qRow.status,
+        lines: lines || [],
+        created_at: qRow.created_at,
+      });
+    }
+    db.release();
+  } catch (err) {
+    console.warn('DB error GET /api/orders/:id:', err.message);
+  }
+  return res.status(404).json({ message: 'Order not found' });
 });
 
 // POST /api/orders
-router.post('/', authenticateJWT, (req, res) => {
+router.post('/', authenticateJWT, async (req, res) => {
   const { quotationId } = req.body;
-  const quote = seed.QUOTATIONS.find((q) => q.id === quotationId);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
-
-  quote.status = 'confirmed';
-  quote.confirmed_at = new Date().toISOString();
-
-  const newOrder = {
-    id: `ord_${quote.id}`,
-    quotation_id: quote.id,
-    order_number: `ORD-${quote.quote_number}`,
-    customer_id: quote.customer_id,
-    customer_name: quote.customer_name,
-    total_amount: quote.total_amount,
-    status: 'pending_fulfillment',
-    created_at: new Date().toISOString(),
-  };
-
-  res.status(201).json(newOrder);
+  try {
+    const db = await getConnection();
+    const qRow = await db.queryOne(`SELECT q.*, c.company_name as customer_name FROM quotations q LEFT JOIN customers c ON c.id = q.customer_id WHERE q.id::text = $1 OR q.quote_number = $1`, [quotationId]);
+    if (qRow) {
+      await db.query(`UPDATE quotations SET status = 'confirmed', confirmed_at = NOW(), updated_at = NOW() WHERE id = $1`, [qRow.id]);
+      db.release();
+      return res.status(201).json({
+        id: `ord_${qRow.id}`,
+        quotation_id: qRow.id,
+        order_number: `ORD-${qRow.quote_number}`,
+        customer_id: qRow.customer_id,
+        customer_name: qRow.customer_name,
+        total_amount: Number(qRow.total_amount || 0),
+        status: 'pending_fulfillment',
+        created_at: new Date().toISOString(),
+      });
+    }
+    db.release();
+  } catch (err) {
+    console.warn('DB error POST /api/orders:', err.message);
+  }
+  return res.status(404).json({ message: 'Quotation not found' });
 });
 
 // PUT /api/orders/:id
-router.put('/:id', authenticateJWT, (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => `ord_${q.id}` === req.params.id || q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Order not found' });
-  Object.assign(quote, req.body);
-  res.json({ id: `ord_${quote.id}`, status: quote.status });
+router.put('/:id', authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  const cleanId = id.startsWith('ord_') ? id.replace('ord_', '') : id;
+  const { status } = req.body;
+  try {
+    const db = await getConnection();
+    if (status) {
+      await db.query(`UPDATE quotations SET status = $1, updated_at = NOW() WHERE id::text = $2 OR quote_number = $2`, [status, cleanId]);
+    }
+    db.release();
+    return res.json({ id: `ord_${cleanId}`, status: status || 'in_fulfillment' });
+  } catch (err) {
+    console.warn('DB error PUT /api/orders/:id:', err.message);
+  }
+  return res.status(404).json({ message: 'Order not found' });
 });
 
 // PATCH /api/orders/:id/status
-router.patch('/:id/status', authenticateJWT, (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => `ord_${q.id}` === req.params.id || q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Order not found' });
-
-  quote.status = req.body.status || 'in_fulfillment';
-  res.json({ id: `ord_${quote.id}`, order_number: `ORD-${quote.quote_number}`, status: quote.status });
+router.patch('/:id/status', authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  const cleanId = id.startsWith('ord_') ? id.replace('ord_', '') : id;
+  const status = req.body.status || 'in_fulfillment';
+  try {
+    const db = await getConnection();
+    const updated = await db.queryOne(`UPDATE quotations SET status = $1, updated_at = NOW() WHERE id::text = $2 OR quote_number = $2 RETURNING *`, [status, cleanId]);
+    db.release();
+    if (updated) {
+      return res.json({ id: `ord_${updated.id}`, order_number: `ORD-${updated.quote_number}`, status: updated.status });
+    }
+  } catch (err) {
+    console.warn('DB error PATCH /api/orders/:id/status:', err.message);
+  }
+  return res.status(404).json({ message: 'Order not found' });
 });
 
 module.exports = router;

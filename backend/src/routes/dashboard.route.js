@@ -1,11 +1,10 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 const { getConnection } = require('../service/database');
 
 const router = express.Router();
 
-// GET /api/dashboard/summary - Query live PostgreSQL DB metrics with fallback
+// GET /api/dashboard/summary - Query live PostgreSQL DB metrics
 router.get('/summary', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
   console.log('[API GET /api/dashboard/summary] Querying PostgreSQL database summary metrics...');
   try {
@@ -37,70 +36,131 @@ router.get('/summary', authenticateJWT, authorizeRoles('admin', 'sales_manager',
       db.release();
     }
   } catch (err) {
-    console.warn('[API GET /api/dashboard/summary] DB query failed, using seed fallback:', err.message);
+    console.warn('[API GET /api/dashboard/summary] DB query failed:', err.message);
+    res.json({
+      totalUsers: 0,
+      totalCustomers: 0,
+      totalProducts: 0,
+      totalQuotations: 0,
+      totalRevenue: 0,
+      pendingApprovalsCount: 0,
+      healthAlertsCount: 0,
+      stalledDealsCount: 0,
+    });
   }
-
-  // Seed Fallback
-  const totalPipeline = seed.QUOTATIONS.reduce((acc, q) => acc + (q.total_amount || 0), 0);
-  const pendingApprovals = seed.QUOTATIONS.filter((q) => q.status === 'pending_approval').length;
-  const openAlerts = seed.DEAL_HEALTH_ALERTS.filter((a) => a.status === 'open').length;
-
-  res.json({
-    totalUsers: seed.USERS.length,
-    totalCustomers: seed.CUSTOMERS.length,
-    totalProducts: seed.PRODUCTS.length,
-    totalQuotations: seed.QUOTATIONS.length,
-    totalRevenue: totalPipeline || 45000,
-    pendingApprovalsCount: pendingApprovals,
-    healthAlertsCount: openAlerts,
-    stalledDealsCount: seed.QUOTATIONS.filter((q) => q.status === 'draft').length,
-  });
 });
 
 // GET /api/dashboard/sales
-router.get('/sales', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), (req, res) => {
-  const sales = seed.QUOTATIONS.map((q) => ({
-    quote_number: q.quote_number,
-    customer_name: q.customer_name,
-    total_amount: q.total_amount,
-    status: q.status,
-  }));
-  res.json({ sales });
+router.get('/sales', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+  try {
+    const db = await getConnection();
+    try {
+      const sales = await db.queryAll(`
+        SELECT q.quote_number, c.company_name as customer_name, q.total_amount, q.status 
+        FROM quotations q 
+        LEFT JOIN customers c ON q.customer_id = c.id 
+        ORDER BY q.created_at DESC LIMIT 50
+      `);
+      return res.json({ sales: sales || [] });
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /api/dashboard/sales] DB query failed:', err.message);
+    res.json({ sales: [] });
+  }
 });
 
 // GET /api/dashboard/revenue
-router.get('/revenue', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), (req, res) => {
-  const confirmedRevenue = seed.QUOTATIONS.filter((q) => ['confirmed', 'in_fulfillment', 'fulfilled'].includes(q.status)).reduce((acc, q) => acc + q.total_amount, 0);
-  const recurringRevenue = seed.QUOTATIONS.flatMap((q) => q.lines || []).filter((l) => l.is_recurring).reduce((acc, l) => acc + l.line_total, 0);
+router.get('/revenue', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+  try {
+    const db = await getConnection();
+    try {
+      const revRes = await db.queryOne("SELECT COALESCE(SUM(total_amount), 0) as total FROM quotations WHERE status::text IN ('confirmed', 'in_fulfillment', 'fulfilled')");
+      const recRes = await db.queryOne("SELECT COALESCE(SUM(line_total), 0) as total FROM quotation_lines WHERE is_recurring = true");
+      const confirmedRevenue = Number(revRes?.total || 0);
+      const recurringRevenue = Number(recRes?.total || 0);
 
-  res.json({
-    confirmedRevenue,
-    recurringMonthlyRevenue: recurringRevenue,
-    projectedAnnualRevenue: confirmedRevenue + recurringRevenue * 12,
-  });
+      return res.json({
+        confirmedRevenue,
+        recurringMonthlyRevenue: recurringRevenue,
+        projectedAnnualRevenue: confirmedRevenue + recurringRevenue * 12,
+      });
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /api/dashboard/revenue] DB query failed:', err.message);
+    res.json({ confirmedRevenue: 0, recurringMonthlyRevenue: 0, projectedAnnualRevenue: 0 });
+  }
 });
 
 // GET /api/dashboard/quotations
-router.get('/quotations', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), (req, res) => {
-  res.json(seed.QUOTATIONS);
+router.get('/quotations', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+  try {
+    const db = await getConnection();
+    try {
+      const quotes = await db.queryAll('SELECT * FROM quotations ORDER BY created_at DESC LIMIT 100');
+      return res.json(quotes || []);
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /api/dashboard/quotations] DB error:', err.message);
+    res.json([]);
+  }
 });
 
 // GET /api/dashboard/approvals
-router.get('/approvals', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), (req, res) => {
-  res.json(seed.QUOTATIONS.filter((q) => q.status === 'pending_approval'));
+router.get('/approvals', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+  try {
+    const db = await getConnection();
+    try {
+      const pending = await db.queryAll("SELECT * FROM quotations WHERE status::text = 'pending_approval' ORDER BY created_at DESC");
+      return res.json(pending || []);
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /api/dashboard/approvals] DB error:', err.message);
+    res.json([]);
+  }
 });
 
 // GET /api/dashboard/fulfillment
-router.get('/fulfillment', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), (req, res) => {
-  res.json(seed.QUOTATIONS.filter((q) => q.status === 'in_fulfillment'));
+router.get('/fulfillment', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+  try {
+    const db = await getConnection();
+    try {
+      const inFulfillment = await db.queryAll("SELECT * FROM quotations WHERE status::text = 'in_fulfillment' ORDER BY created_at DESC");
+      return res.json(inFulfillment || []);
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /api/dashboard/fulfillment] DB error:', err.message);
+    res.json([]);
+  }
 });
 
 // GET /api/dashboard/deal-health
-router.get('/deal-health', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), (req, res) => {
-  res.json({
-    alerts: seed.DEAL_HEALTH_ALERTS,
-    stalledDeals: seed.QUOTATIONS.filter((q) => q.status === 'draft'),
-  });
+router.get('/deal-health', authenticateJWT, authorizeRoles('admin', 'sales_manager', 'finance_ops', 'sales_rep'), async (req, res) => {
+  try {
+    const db = await getConnection();
+    try {
+      const alerts = await db.queryAll("SELECT * FROM deal_health_alerts ORDER BY created_at DESC");
+      const stalled = await db.queryAll("SELECT * FROM quotations WHERE status::text = 'draft' ORDER BY created_at DESC");
+      return res.json({
+        alerts: alerts || [],
+        stalledDeals: stalled || [],
+      });
+    } finally {
+      db.release();
+    }
+  } catch (err) {
+    console.warn('[API GET /api/dashboard/deal-health] DB error:', err.message);
+    res.json({ alerts: [], stalledDeals: [] });
+  }
 });
 
 module.exports = router;

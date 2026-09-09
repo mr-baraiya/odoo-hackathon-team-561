@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { getUpsellSuggestions } = require('../service/upsellEngine');
 const { getConnection } = require('../service/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
@@ -50,8 +49,7 @@ router.get('/upsell-rules', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.warn('[upsell.route] DB get upsell-rules failed:', err.message);
   }
-  // Fallback to seed
-  res.json(seed.UPSELL_RULES);
+  res.json([]);
 });
 
 // POST /api/upsell-rules  — create new pairing rule
@@ -81,16 +79,7 @@ router.post('/upsell-rules', authenticateJWT, authorizeRoles('admin', 'sales_man
     console.warn('[upsell.route] DB insert failed:', err.message);
   }
 
-  // Memory fallback
-  const newRule = {
-    id: `90${seed.UPSELL_RULES.length + 1}`,
-    base_product_id, suggested_product_id,
-    co_purchase_score: score,
-    min_margin_pct_required: minMargin,
-    is_active: active,
-  };
-  seed.UPSELL_RULES.push(newRule);
-  res.status(201).json(newRule);
+  return res.status(500).json({ message: 'Failed to create upsell rule in database' });
 });
 
 // PUT /api/upsell-rules/:id  — update pairing rule
@@ -122,10 +111,7 @@ router.put('/upsell-rules/:id', authenticateJWT, authorizeRoles('admin', 'sales_
     console.warn('[upsell.route] DB update failed:', err.message);
   }
 
-  const rule = seed.UPSELL_RULES.find((r) => r.id === idParam);
-  if (!rule) return res.status(404).json({ message: 'Upsell rule not found' });
-  Object.assign(rule, req.body);
-  res.json(rule);
+  return res.status(404).json({ message: 'Upsell rule not found' });
 });
 
 // DELETE /api/upsell-rules/:id
@@ -141,8 +127,6 @@ router.delete('/upsell-rules/:id', authenticateJWT, authorizeRoles('admin', 'sal
   } catch (err) {
     console.warn('[upsell.route] DB delete failed:', err.message);
   }
-  const idx = seed.UPSELL_RULES.findIndex((r) => r.id === idParam);
-  if (idx !== -1) seed.UPSELL_RULES.splice(idx, 1);
   res.json({ message: 'Upsell rule deleted', id: idParam });
 });
 
@@ -193,13 +177,7 @@ router.get('/recommendations', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.warn('[upsell.route] DB recommendations failed:', err.message);
   }
-  // Fallback
-  const result = getUpsellSuggestions({
-    currentCartLines: [],
-    availableProducts: seed.PRODUCTS,
-    upsellRules: seed.UPSELL_RULES,
-  });
-  res.json(result);
+  res.json([]);
 });
 
 // GET /api/recommendations/:productId  — suggestions for a specific product
@@ -231,12 +209,7 @@ router.get('/recommendations/:productId', authenticateJWT, async (req, res) => {
   } catch (err) {
     console.warn('[upsell.route] DB recommendations/:id failed:', err.message);
   }
-  const result = getUpsellSuggestions({
-    currentCartLines: [{ productId, quantity: 1, unitPrice: 1000, costPrice: 600, discountPct: 0 }],
-    availableProducts: seed.PRODUCTS,
-    upsellRules: seed.UPSELL_RULES,
-  });
-  res.json(result);
+  res.json([]);
 });
 
 module.exports = router;

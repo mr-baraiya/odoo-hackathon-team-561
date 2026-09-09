@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
 
@@ -34,8 +33,8 @@ router.get('/reorder-alerts', authenticateJWT, async (req, res) => {
       WHERE ws.quantity_on_hand <= ws.reorder_threshold
     `);
     db.release();
-    if (rows) {
-      return res.json(rows.map((s) => ({
+    return res.json(
+      (rows || []).map((s) => ({
         stock_id: s.id,
         product_name: s.product_name || s.product_id,
         warehouse_name: s.warehouse_name || s.warehouse_id,
@@ -43,26 +42,12 @@ router.get('/reorder-alerts', authenticateJWT, async (req, res) => {
         reorder_threshold: Number(s.reorder_threshold || 0),
         replenishment_lead_days: Number(s.replenishment_lead_days || 0),
         alert_status: s.quantity_on_hand === 0 ? 'out_of_stock' : 'critical_low_stock',
-      })));
-    }
+      }))
+    );
   } catch (err) {
-    console.warn('[inventory.route] DB reorder query failed, falling back:', err.message);
+    console.warn('[inventory.route] DB reorder query failed:', err.message);
+    res.json([]);
   }
-
-  const alerts = seed.WAREHOUSE_STOCK.filter((s) => s.quantity_on_hand <= s.reorder_threshold).map((s) => {
-    const prod = seed.PRODUCTS.find((p) => p.id === s.product_id);
-    const wh = seed.WAREHOUSES.find((w) => w.id === s.warehouse_id);
-    return {
-      stock_id: s.id,
-      product_name: prod ? prod.name : s.product_id,
-      warehouse_name: wh ? wh.name : s.warehouse_id,
-      quantity_on_hand: s.quantity_on_hand,
-      reorder_threshold: s.reorder_threshold,
-      replenishment_lead_days: s.replenishment_lead_days || 7,
-      alert_status: s.quantity_on_hand === 0 ? 'out_of_stock' : 'critical_low_stock',
-    };
-  });
-  res.json(alerts);
 });
 
 // GET /api/inventory
@@ -77,8 +62,8 @@ router.get('/', authenticateJWT, async (req, res) => {
       ORDER BY ws.updated_at DESC
     `);
     db.release();
-    if (rows && rows.length > 0) {
-      return res.json(rows.map((s) => ({
+    return res.json(
+      (rows || []).map((s) => ({
         id: s.id,
         warehouse_id: s.warehouse_id,
         product_id: s.product_id,
@@ -90,24 +75,36 @@ router.get('/', authenticateJWT, async (req, res) => {
         reorder_threshold: Number(s.reorder_threshold || 2),
         replenishment_lead_days: Number(s.replenishment_lead_days || 7),
         updated_at: s.updated_at,
-      })));
-    }
+      }))
+    );
   } catch (err) {
-    console.warn('[inventory.route] DB query failed, falling back:', err.message);
+    console.warn('[inventory.route] DB query failed:', err.message);
+    res.json([]);
   }
-  res.json(seed.WAREHOUSE_STOCK);
 });
 
 // GET /api/inventory/product/:productId
-router.get('/product/:productId', authenticateJWT, (req, res) => {
-  const stock = seed.WAREHOUSE_STOCK.filter((s) => s.product_id === req.params.productId);
-  res.json(stock);
+router.get('/product/:productId', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM warehouse_stock WHERE product_id::text = $1', [req.params.productId]);
+    db.release();
+    return res.json(rows || []);
+  } catch (err) {
+    return res.json([]);
+  }
 });
 
 // GET /api/inventory/warehouse/:warehouseId
-router.get('/warehouse/:warehouseId', authenticateJWT, (req, res) => {
-  const stock = seed.WAREHOUSE_STOCK.filter((s) => s.warehouse_id === req.params.warehouseId);
-  res.json(stock);
+router.get('/warehouse/:warehouseId', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll('SELECT * FROM warehouse_stock WHERE warehouse_id::text = $1', [req.params.warehouseId]);
+    db.release();
+    return res.json(rows || []);
+  } catch (err) {
+    return res.json([]);
+  }
 });
 
 // POST /api/inventory/stock
@@ -132,19 +129,9 @@ router.post('/stock', authenticateJWT, authorizeRoles('admin', 'finance_ops', 's
       return res.status(201).json(inserted);
     }
   } catch (err) {
-    console.warn('[inventory.route] DB insert failed, using memory fallback:', err.message);
+    console.warn('[inventory.route] DB insert failed:', err.message);
+    return res.status(500).json({ message: 'Failed to insert stock record' });
   }
-
-  const newStock = {
-    id: `80${seed.WAREHOUSE_STOCK.length + 1}`,
-    warehouse_id,
-    product_id,
-    quantity_on_hand: qty,
-    reorder_threshold: reorder,
-    replenishment_lead_days: leadDays,
-  };
-  seed.WAREHOUSE_STOCK.push(newStock);
-  res.status(201).json(newStock);
 });
 
 // PUT /api/inventory/stock/:id
@@ -186,10 +173,7 @@ router.put('/stock/:id', authenticateJWT, authorizeRoles('admin', 'finance_ops',
     console.warn('[inventory.route] DB update failed:', err.message);
   }
 
-  const stock = seed.WAREHOUSE_STOCK.find((s) => String(s.id) === String(req.params.id));
-  if (!stock) return res.status(404).json({ message: 'Stock record not found' });
-  Object.assign(stock, req.body);
-  res.json(stock);
+  return res.status(404).json({ message: 'Stock record not found' });
 });
 
 // PATCH /api/inventory/stock/:id
@@ -231,12 +215,7 @@ router.patch('/stock/:id', authenticateJWT, authorizeRoles('admin', 'finance_ops
     console.warn('[inventory.route] DB patch failed:', err.message);
   }
 
-  const stock = seed.WAREHOUSE_STOCK.find((s) => String(s.id) === String(req.params.id));
-  if (!stock) return res.status(404).json({ message: 'Stock record not found' });
-  if (req.body.quantity_on_hand !== undefined) stock.quantity_on_hand = Number(req.body.quantity_on_hand);
-  if (req.body.reorder_threshold !== undefined) stock.reorder_threshold = Number(req.body.reorder_threshold);
-  if (req.body.replenishment_lead_days !== undefined) stock.replenishment_lead_days = Number(req.body.replenishment_lead_days);
-  res.json(stock);
+  return res.status(404).json({ message: 'Stock record not found' });
 });
 
 // DELETE /api/inventory/stock/:id
@@ -255,9 +234,7 @@ router.delete('/stock/:id', authenticateJWT, authorizeRoles('admin', 'finance_op
     console.warn('[inventory.route] DB stock delete warning:', err.message);
   }
 
-  const idx = seed.WAREHOUSE_STOCK.findIndex((s) => String(s.id) === String(req.params.id));
-  if (idx !== -1) seed.WAREHOUSE_STOCK.splice(idx, 1);
-  res.json({ message: 'Stock allocation deleted' });
+  return res.json({ message: 'Stock allocation deleted' });
 });
 
 module.exports = router;

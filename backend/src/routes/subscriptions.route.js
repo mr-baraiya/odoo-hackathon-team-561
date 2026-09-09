@@ -1,34 +1,61 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
+const { getConnection } = require('../service/database');
 
 const router = express.Router();
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 
 // --- 18. SUBSCRIPTIONS ---
-router.get('/subscriptions', authenticateJWT, (req, res) => {
-  const recurringLines = seed.QUOTATIONS.flatMap((q) => q.lines.filter((l) => l.is_recurring)).map((l) => ({
-    id: `sub_${l.id}`,
-    quotation_line_id: l.id,
-    quotation_id: l.quotation_id,
-    product_name: l.product_name,
-    status: l.subscription_status || 'active',
-    monthly_price: l.line_total,
-    started_at: l.created_at || new Date().toISOString(),
-  }));
-  res.json(recurringLines);
+router.get('/subscriptions', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll(`
+      SELECT ql.*, p.name as product_name
+      FROM quotation_lines ql
+      LEFT JOIN products p ON p.id = ql.product_id
+      WHERE ql.is_recurring = true
+    `);
+    db.release();
+    const recurringLines = (rows || []).map((l) => ({
+      id: `sub_${l.id}`,
+      quotation_line_id: l.id,
+      quotation_id: l.quotation_id,
+      product_name: l.product_name,
+      status: 'active',
+      monthly_price: Number(l.line_total || 0),
+      started_at: l.created_at || new Date().toISOString(),
+    }));
+    return res.json(recurringLines);
+  } catch (err) {
+    console.warn('[subscriptions.route] DB query error:', err.message);
+    return res.json([]);
+  }
 });
 
-router.get('/subscriptions/:id', authenticateJWT, (req, res) => {
-  const recurringLines = seed.QUOTATIONS.flatMap((q) => q.lines.filter((l) => l.is_recurring));
-  const sub = recurringLines.find((l) => `sub_${l.id}` === req.params.id || l.id === req.params.id);
-  if (!sub) return res.status(404).json({ message: 'Subscription not found' });
-  res.json({
-    id: `sub_${sub.id}`,
-    quotation_line_id: sub.id,
-    product_name: sub.product_name,
-    status: sub.subscription_status || 'active',
-    monthly_price: sub.line_total,
-  });
+router.get('/subscriptions/:id', authenticateJWT, async (req, res) => {
+  const cleanId = req.params.id.replace('sub_', '');
+  try {
+    const db = await getConnection();
+    const l = await db.queryOne(`
+      SELECT ql.*, p.name as product_name
+      FROM quotation_lines ql
+      LEFT JOIN products p ON p.id = ql.product_id
+      WHERE ql.id::text = $1 OR ql.quotation_id::text = $1
+    `, [cleanId]);
+    db.release();
+    if (l) {
+      return res.json({
+        id: `sub_${l.id}`,
+        quotation_line_id: l.id,
+        product_name: l.product_name,
+        status: 'active',
+        monthly_price: Number(l.line_total || 0),
+      });
+    }
+  } catch (err) {
+    console.warn('[subscriptions.route] DB query error:', err.message);
+  }
+  return res.status(404).json({ message: 'Subscription not found' });
 });
 
 router.post('/subscriptions', authenticateJWT, authorizeRoles('admin', 'sales_manager'), (req, res) => {
@@ -58,9 +85,6 @@ router.post('/subscriptions/:id/cancel', authenticateJWT, (req, res) => {
   res.json({ message: 'Subscription cancelled. Credit note generated.', id: req.params.id, status: 'cancelled' });
 });
 
-const { getConnection } = require('../service/database');
-const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-
 // --- 19. SUBSCRIPTION PLANS (POSTGRESQL DB CONNECTED) ---
 router.get('/subscription-plans', authenticateJWT, async (req, res) => {
   try {
@@ -72,7 +96,7 @@ router.get('/subscription-plans', authenticateJWT, async (req, res) => {
       ORDER BY sp.price_per_cycle ASC
     `);
     db.release();
-    if (rows && rows.length > 0) {
+    if (rows) {
       return res.json(rows.map((p) => ({
         id: p.id,
         product_id: p.product_id,
@@ -91,9 +115,9 @@ router.get('/subscription-plans', authenticateJWT, async (req, res) => {
       })));
     }
   } catch (err) {
-    console.warn('[subscriptions.route] DB query failed, falling back to seed:', err.message);
+    console.warn('[subscriptions.route] DB query failed:', err.message);
   }
-  res.json(seed.SUBSCRIPTION_PLANS);
+  res.json([]);
 });
 
 router.get('/subscription-plans/:id', authenticateJWT, async (req, res) => {
@@ -112,9 +136,7 @@ router.get('/subscription-plans/:id', authenticateJWT, async (req, res) => {
     console.warn('[subscriptions.route] DB get plan error:', err.message);
   }
 
-  const plan = seed.SUBSCRIPTION_PLANS.find((p) => String(p.id) === String(idParam));
-  if (!plan) return res.status(404).json({ message: 'Plan not found' });
-  res.json(plan);
+  return res.status(404).json({ message: 'Plan not found' });
 });
 
 router.post('/subscription-plans', authenticateJWT, authorizeRoles('admin', 'finance_ops', 'sales_manager', 'sales_rep'), async (req, res) => {
@@ -169,25 +191,9 @@ router.post('/subscription-plans', authenticateJWT, authorizeRoles('admin', 'fin
       return res.status(201).json(inserted);
     }
   } catch (err) {
-    console.warn('[subscriptions.route] DB insert failed, using memory fallback:', err.message);
+    console.warn('[subscriptions.route] DB insert failed:', err.message);
+    return res.status(500).json({ message: 'Failed to create subscription plan' });
   }
-
-  const newPlan = {
-    id: `60${seed.SUBSCRIPTION_PLANS.length + 1}`,
-    product_id: product_id || '504',
-    name: nameVal,
-    cycle: cycleVal,
-    price_per_cycle: priceVal,
-    proration_enabled: proEnabled,
-    proration_policy: proPolicy,
-    cancellation_notice_days: noticeDays,
-    cancellation_policy: cancelPolicy,
-    partial_refund_allowed: refundAllowed,
-    refund_window_days: refundWindow,
-    early_termination_fee_pct: terminationFee,
-  };
-  seed.SUBSCRIPTION_PLANS.push(newPlan);
-  res.status(201).json(newPlan);
 });
 
 router.put('/subscription-plans/:id', authenticateJWT, authorizeRoles('admin', 'finance_ops', 'sales_manager', 'sales_rep'), async (req, res) => {
@@ -275,10 +281,7 @@ router.put('/subscription-plans/:id', authenticateJWT, authorizeRoles('admin', '
     console.warn('[subscriptions.route] DB plan update failed:', err.message);
   }
 
-  const plan = seed.SUBSCRIPTION_PLANS.find((p) => String(p.id) === String(idParam));
-  if (!plan) return res.status(404).json({ message: 'Plan not found' });
-  Object.assign(plan, req.body);
-  res.json(plan);
+  return res.status(404).json({ message: 'Plan not found' });
 });
 
 router.delete('/subscription-plans/:id', authenticateJWT, authorizeRoles('admin', 'finance_ops', 'sales_manager', 'sales_rep'), async (req, res) => {
@@ -296,8 +299,6 @@ router.delete('/subscription-plans/:id', authenticateJWT, authorizeRoles('admin'
     console.warn('[subscriptions.route] DB plan delete warning:', err.message);
   }
 
-  const idx = seed.SUBSCRIPTION_PLANS.findIndex((p) => String(p.id) === String(idParam));
-  if (idx !== -1) seed.SUBSCRIPTION_PLANS.splice(idx, 1);
   res.json({ message: 'Subscription plan deleted successfully' });
 });
 

@@ -1,7 +1,7 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { generateHybridBillingSchedule, triggerSubscriptionCreditNote } = require('../service/billingEngine');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth.middleware');
+const { getConnection } = require('../service/database');
 
 const router = express.Router();
 
@@ -14,54 +14,90 @@ const CREDIT_NOTES = [
 ];
 
 // --- 20. INVOICES ---
-router.get('/invoices', authenticateJWT, (req, res) => {
-  const invoices = seed.QUOTATIONS.map((q) => ({
-    id: `inv_${q.id}`,
-    quotation_id: q.id,
-    invoice_number: `INV-${q.quote_number}`,
-    customer_id: q.customer_id,
-    customer_name: q.customer_name,
-    amount_due: q.total_amount,
-    amount_paid: q.status === 'fulfilled' ? q.total_amount : 0,
-    status: q.status === 'fulfilled' ? 'paid' : 'sent',
-    due_date: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
-    issued_at: q.created_at,
-  }));
-  res.json(invoices);
+router.get('/invoices', authenticateJWT, async (req, res) => {
+  try {
+    const db = await getConnection();
+    const rows = await db.queryAll(`
+      SELECT q.id as quotation_id, ('inv_' || q.id::text) as id, ('INV-' || q.quote_number) as invoice_number,
+             q.customer_id, c.company_name as customer_name, q.total_amount as amount_due,
+             CASE WHEN q.status::text = 'fulfilled' THEN q.total_amount ELSE 0 END as amount_paid,
+             CASE WHEN q.status::text = 'fulfilled' THEN 'paid' ELSE 'sent' END as status,
+             q.created_at as issued_at
+      FROM quotations q
+      LEFT JOIN customers c ON c.id = q.customer_id
+      ORDER BY q.created_at DESC
+    `);
+    db.release();
+    return res.json(
+      (rows || []).map((i) => ({
+        ...i,
+        amount_due: Number(i.amount_due || 0),
+        amount_paid: Number(i.amount_paid || 0),
+        due_date: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      }))
+    );
+  } catch (err) {
+    console.warn('[billing.route] DB query error:', err.message);
+    return res.json([]);
+  }
 });
 
-router.get('/invoices/:id', authenticateJWT, (req, res) => {
-  const quote = seed.QUOTATIONS.find((q) => `inv_${q.id}` === req.params.id || q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Invoice not found' });
-  const schedule = generateHybridBillingSchedule(quote);
-  res.json({
-    id: `inv_${quote.id}`,
-    quotation_id: quote.id,
-    invoice_number: `INV-${quote.quote_number}`,
-    customer_id: quote.customer_id,
-    customer_name: quote.customer_name,
-    amount_due: quote.total_amount,
-    status: quote.status === 'fulfilled' ? 'paid' : 'sent',
-    billing_schedule: schedule,
-    issued_at: quote.created_at,
-  });
+router.get('/invoices/:id', authenticateJWT, async (req, res) => {
+  const cleanId = req.params.id.replace('inv_', '');
+  try {
+    const db = await getConnection();
+    const quote = await db.queryOne(`
+      SELECT q.*, c.company_name as customer_name
+      FROM quotations q
+      LEFT JOIN customers c ON c.id = q.customer_id
+      WHERE q.id::text = $1 OR q.quote_number = $1
+    `, [cleanId]);
+
+    if (quote) {
+      const lines = await db.queryAll('SELECT * FROM quotation_lines WHERE quotation_id = $1', [quote.id]);
+      db.release();
+      quote.lines = lines || [];
+      const schedule = generateHybridBillingSchedule(quote);
+      return res.json({
+        id: `inv_${quote.id}`,
+        quotation_id: quote.id,
+        invoice_number: `INV-${quote.quote_number}`,
+        customer_id: quote.customer_id,
+        customer_name: quote.customer_name,
+        amount_due: Number(quote.total_amount || 0),
+        status: quote.status === 'fulfilled' ? 'paid' : 'sent',
+        billing_schedule: schedule,
+        issued_at: quote.created_at,
+      });
+    }
+    db.release();
+  } catch (err) {
+    console.warn('[billing.route] DB query error:', err.message);
+  }
+  return res.status(404).json({ message: 'Invoice not found' });
 });
 
-router.post('/invoices', authenticateJWT, authorizeRoles('admin', 'finance_ops'), (req, res) => {
+router.post('/invoices', authenticateJWT, authorizeRoles('admin', 'finance_ops'), async (req, res) => {
   const { quotationId } = req.body;
-  const quote = seed.QUOTATIONS.find((q) => q.id === quotationId);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
-
-  const newInvoice = {
-    id: `inv_${quote.id}`,
-    quotation_id: quote.id,
-    invoice_number: `INV-${quote.quote_number}`,
-    customer_id: quote.customer_id,
-    amount_due: quote.total_amount,
-    status: 'draft',
-    created_at: new Date().toISOString(),
-  };
-  res.status(201).json(newInvoice);
+  try {
+    const db = await getConnection();
+    const quote = await db.queryOne('SELECT * FROM quotations WHERE id::text = $1 OR quote_number = $1', [quotationId]);
+    db.release();
+    if (quote) {
+      return res.status(201).json({
+        id: `inv_${quote.id}`,
+        quotation_id: quote.id,
+        invoice_number: `INV-${quote.quote_number}`,
+        customer_id: quote.customer_id,
+        amount_due: Number(quote.total_amount || 0),
+        status: 'draft',
+        created_at: new Date().toISOString(),
+      });
+    }
+  } catch (err) {
+    console.warn('[billing.route] DB error in POST invoice:', err.message);
+  }
+  return res.status(404).json({ message: 'Quotation not found' });
 });
 
 router.put('/invoices/:id', authenticateJWT, authorizeRoles('admin', 'finance_ops'), (req, res) => {

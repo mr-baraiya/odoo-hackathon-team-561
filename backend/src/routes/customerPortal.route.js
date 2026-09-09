@@ -1,5 +1,4 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { getConnection } = require('../service/database');
 const { authenticateJWT } = require('../middleware/auth.middleware');
 const sendWhatsApp = require('../utils/sendWhatsApp');
@@ -259,9 +258,7 @@ router.get('/quotations/:id', authenticateJWT, async (req, res) => {
 
     if (!quote) {
       db.release();
-      const seedQuote = seed.QUOTATIONS.find((q) => q.id === id || q.quote_number === id);
-      if (!seedQuote) return res.status(404).json({ message: 'Quotation proposal not found.' });
-      return res.json({ quote: seedQuote, negotiations: [] });
+      return res.status(404).json({ message: 'Quotation proposal not found.' });
     }
 
     // Fetch line items
@@ -326,12 +323,7 @@ router.get('/quotations/:id', authenticateJWT, async (req, res) => {
     return res.json({ quote: formattedQuote, negotiations });
   } catch (err) {
     console.warn('DB error on GET /customer-portal/quotations/:id:', err.message);
-    const quote = seed.QUOTATIONS.find((q) => q.id === id || q.quote_number === id);
-    if (!quote) return res.status(404).json({ message: 'Quotation proposal not found.' });
-    const seedNegs = seed.NEGOTIATION_REQUESTS.filter(
-      (n) => n.quotation_id === id || n.quotation_id === quote.id || n.quotation_id === quote.quote_number
-    );
-    return res.json({ quote, negotiations: seedNegs || [] });
+    return res.status(404).json({ message: 'Quotation proposal not found.' });
   }
 });
 
@@ -386,14 +378,7 @@ router.post('/quotations/:id/confirm', authenticateJWT, async (req, res) => {
           [qty, String(line.product_id)]
         ).catch((e) => console.warn('Warehouse stock deduction warning:', e.message));
 
-        if (Array.isArray(seed.PRODUCTS)) {
-          const pSeed = seed.PRODUCTS.find((p) => String(p.id) === String(line.product_id));
-          if (pSeed) pSeed.stock_quantity = Math.max(0, (pSeed.stock_quantity ?? 20) - qty);
-        }
-        if (Array.isArray(seed.WAREHOUSE_STOCK)) {
-          const wsSeed = seed.WAREHOUSE_STOCK.find((ws) => String(ws.product_id) === String(line.product_id));
-          if (wsSeed) wsSeed.quantity_on_hand = Math.max(0, (wsSeed.quantity_on_hand ?? 20) - qty);
-        }
+
       }
     }
 
@@ -570,18 +555,7 @@ router.post('/quotations/:id/reject', authenticateJWT, async (req, res) => {
 
     db.release();
 
-    // Update seed memory data
-    if (Array.isArray(seed.QUOTATIONS)) {
-      const seedQuote = seed.QUOTATIONS.find((q) => q.id === id || q.quote_number === id || q.id === targetId);
-      if (seedQuote) seedQuote.status = 'rejected';
-    }
-    if (Array.isArray(seed.NEGOTIATION_REQUESTS)) {
-      const seedNegs = seed.NEGOTIATION_REQUESTS.filter((n) => n.quotation_id === id || n.quotation_id === targetId);
-      seedNegs.forEach((n) => {
-        n.status = 'rejected';
-        n.response_message = reason || 'Quotation declined by customer';
-      });
-    }
+
 
     return res.json({
       success: true,

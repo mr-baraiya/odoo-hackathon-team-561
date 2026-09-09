@@ -1,8 +1,8 @@
 const express = require('express');
-const seed = require('../db/dealflow360_seed');
 const { calculateBlendedRiskScore } = require('../service/riskScoreEngine');
 const { authenticateJWT } = require('../middleware/auth.middleware');
 const { getConnection } = require('../service/database');
+const { validateDiscountBoundary } = require('../utils/discountValidator');
 
 const router = express.Router();
 
@@ -42,25 +42,18 @@ router.get('/', authenticateJWT, async (req, res) => {
     const rows = await db.queryAll(query, params);
     db.release();
 
-    if (rows && rows.length > 0) {
-      return res.json(
-        rows.map((r) => ({
-          ...r,
-          total_amount: Number(r.total_amount || 0),
-          order_level_discount_pct: Number(r.order_level_discount_pct || 0),
-          has_open_negotiation: Number(r.open_neg_count || 0) > 0,
-        }))
-      );
-    }
+    return res.json(
+      (rows || []).map((r) => ({
+        ...r,
+        total_amount: Number(r.total_amount || 0),
+        order_level_discount_pct: Number(r.order_level_discount_pct || 0),
+        has_open_negotiation: Number(r.open_neg_count || 0) > 0,
+      }))
+    );
   } catch (err) {
     console.warn('DB error GET /api/quotations:', err.message);
+    res.json([]);
   }
-
-  let filtered = [...seed.QUOTATIONS];
-  if (status) filtered = filtered.filter((q) => q.status === status);
-  if (salesRepId) filtered = filtered.filter((q) => q.sales_rep_id === salesRepId);
-
-  res.json(filtered);
 });
 
 // GET /api/quotations/:id
@@ -100,12 +93,8 @@ router.get('/:id', authenticateJWT, async (req, res) => {
     console.warn('DB error GET /api/quotations/:id:', err.message);
   }
 
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id || q.quote_number === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
-  res.json(quote);
+  return res.status(404).json({ message: 'Quotation not found' });
 });
-
-const { validateDiscountBoundary } = require('../utils/discountValidator');
 
 // POST /api/quotations
 router.post('/', authenticateJWT, async (req, res) => {
@@ -215,42 +204,8 @@ router.post('/', authenticateJWT, async (req, res) => {
     });
   } catch (err) {
     console.error('DB error POST /api/quotations:', err);
+    return res.status(500).json({ message: 'Failed to create quotation in database.' });
   }
-
-  // Fallback
-  const customer = seed.CUSTOMERS.find((c) => c.id === customerId) || seed.CUSTOMERS[0];
-  const rep = seed.USERS.find((u) => u.id === salesRepId) || req.user || seed.USERS[0];
-
-  const riskResult = calculateBlendedRiskScore({
-    customerTierCode: customer.tier_code || 'silver',
-    lineItems: lineItems || [],
-    orderDiscountPct: Number(orderDiscountPct || 0),
-  });
-
-  const quoteId = `110${seed.QUOTATIONS.length + 1}`;
-  const quoteNumber = `Q-2026-${Math.floor(100 + Math.random() * 900)}`;
-
-  const newQuote = {
-    id: quoteId,
-    quote_number: quoteNumber,
-    customer_id: customer.id,
-    customer_name: customer.company_name,
-    customer_tier_code: customer.tier_code || 'silver',
-    sales_rep_id: rep.id,
-    sales_rep_name: rep.full_name,
-    status: riskResult.suggestedStatus,
-    blended_risk_score: riskResult.blendedRiskScore,
-    order_level_discount_pct: Number(orderDiscountPct || 0),
-    subtotal: riskResult.subtotal,
-    total_discount_amount: riskResult.totalDiscountAmount,
-    total_amount: riskResult.totalAmount,
-    currency_code: 'USD',
-    last_activity_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-  };
-
-  seed.QUOTATIONS.unshift(newQuote);
-  res.status(201).json(newQuote);
 });
 
 // POST /api/quotations/:id/send
@@ -263,11 +218,8 @@ router.post('/:id/send', authenticateJWT, async (req, res) => {
     return res.json({ message: 'Quotation status updated to sent_to_customer in DB.' });
   } catch (err) {
     console.warn('DB error POST /api/quotations/:id/send:', err.message);
+    return res.status(500).json({ message: 'Failed to update quotation status.' });
   }
-
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id);
-  if (quote) quote.status = 'sent_to_customer';
-  res.json({ message: 'Quotation sent to customer.', quote });
 });
 
 // POST /api/quotations/:id/confirm
@@ -280,7 +232,7 @@ router.post('/:id/confirm', authenticateJWT, async (req, res) => {
       await db.query(`UPDATE quotations SET status = 'confirmed', confirmed_at = NOW(), updated_at = NOW() WHERE id = $1`, [qRow.id]);
       
       // Auto-create fulfillment order in DB
-      const ful = await db.queryOne(`
+      await db.queryOne(`
         INSERT INTO fulfillment_orders (quotation_id, status, created_at, updated_at)
         VALUES ($1, 'pending', NOW(), NOW())
         RETURNING *
@@ -301,11 +253,7 @@ router.post('/:id/confirm', authenticateJWT, async (req, res) => {
     console.warn('DB error POST /api/quotations/:id/confirm:', err.message);
   }
 
-  const quote = seed.QUOTATIONS.find((q) => q.id === req.params.id);
-  if (!quote) return res.status(404).json({ message: 'Quotation not found' });
-
-  quote.status = 'confirmed';
-  res.json({ message: 'Quotation confirmed! Order generated.', quote });
+  return res.status(404).json({ message: 'Quotation not found' });
 });
 
 module.exports = router;

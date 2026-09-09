@@ -1,7 +1,6 @@
 const express = require('express');
 const { getConnection } = require('../service/database');
 const { authenticateJWT } = require('../middleware/auth.middleware');
-const seed = require('../db/dealflow360_seed');
 
 const router = express.Router();
 
